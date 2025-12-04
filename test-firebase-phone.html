@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Firebase Phone Auth Test</title>
+    <script type="module">
+        // Test Firebase Phone Authentication configuration
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, RecaptchaVerifier } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDivrY3jA10HgNnfuHKXz38vIE9wcdTh5E",
+            authDomain: "dating-app-ae584.firebaseapp.com",
+            projectId: "dating-app-ae584",
+            storageBucket: "dating-app-ae584.firebasestorage.app",
+            messagingSenderId: "673691363622",
+            appId: "1:673691363622:web:73be650c2718416b8439e7"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        console.log('✅ Firebase initialized');
+        console.log('Project ID:', firebaseConfig.projectId);
+
+        // Test reCAPTCHA initialization
+        const container = document.createElement('div');
+        container.id = 'recaptcha-container';
+        document.body.appendChild(container);
+
+        try {
+            const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+                size: 'invisible',
+            });
+
+            recaptchaVerifier.render().then(() => {
+                console.log('✅ reCAPTCHA initialized successfully');
+                console.log('reCAPTCHA Widget ID:', recaptchaVerifier.recaptchaWidgetId);
+            }).catch(error => {
+                console.error('❌ reCAPTCHA initialization failed:', error);
+                console.error('Error code:', error.code);
+                console.error('Error message:', error.message);
+            });
+        } catch (error) {
+            console.error('❌ Error creating RecaptchaVerifier:', error);
+        }
+    </script>
+</head>
+<body>
+    <h1>Firebase Phone Auth Test</h1>
+    <p>Open browser console to see test results.</p>
+    <div id="recaptcha-container"></div>
+</body>
+</html>
+
+
+
+
+

@@ -1,0 +1,787 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* CSS Variables for consistent spacing - Responsive navbar heights */
+:root {
+  --top-navbar-height: 64px; /* Default: 4rem - matches h-16 */
+  --navbar-height: 64px; /* Alias for backward compatibility */
+  --bottom-navbar-height: 60px; /* Fixed height for bottom navbar */
+  --bottom-nav-height: 60px; /* Alias for backward compatibility */
+}
+
+/* Responsive navbar heights */
+@media (min-width: 1024px) {
+  :root {
+    --top-navbar-height: 64px; /* Desktop: keep consistent */
+    --navbar-height: 64px; /* Alias */
+    --bottom-navbar-height: 60px; /* Desktop: fixed height */
+    --bottom-nav-height: 60px; /* Alias */
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --top-navbar-height: 64px; /* Mobile: keep consistent */
+    --navbar-height: 64px; /* Alias */
+    --bottom-navbar-height: 60px; /* Mobile: fixed height */
+    --bottom-nav-height: 60px; /* Alias */
+  }
+}
+
+/* Safe area insets for mobile devices with notches */
+@supports (padding: env(safe-area-inset-top)) {
+  :root {
+    --top-navbar-height: calc(64px + env(safe-area-inset-top, 0px));
+    --navbar-height: calc(64px + env(safe-area-inset-top, 0px));
+  }
+  
+  @media (min-width: 1024px) {
+    :root {
+      --top-navbar-height: calc(64px + env(safe-area-inset-top, 0px));
+      --navbar-height: calc(64px + env(safe-area-inset-top, 0px));
+    }
+  }
+  
+  @media (max-width: 768px) {
+    :root {
+      --top-navbar-height: calc(64px + env(safe-area-inset-top, 0px));
+      --navbar-height: calc(64px + env(safe-area-inset-top, 0px));
+    }
+  }
+}
+
+/* Safe area insets for bottom navigation */
+@supports (padding: env(safe-area-inset-bottom)) {
+  :root {
+    --bottom-navbar-height: calc(64px + env(safe-area-inset-bottom, 0px));
+    --bottom-nav-height: calc(64px + env(safe-area-inset-bottom, 0px));
+  }
+  
+  @media (min-width: 1024px) {
+    :root {
+      --bottom-navbar-height: calc(64px + env(safe-area-inset-bottom, 0px));
+      --bottom-nav-height: calc(64px + env(safe-area-inset-bottom, 0px));
+    }
+  }
+  
+  @media (max-width: 768px) {
+    :root {
+      --bottom-navbar-height: calc(64px + env(safe-area-inset-bottom, 0px));
+      --bottom-nav-height: calc(64px + env(safe-area-inset-bottom, 0px));
+    }
+  }
+}
+
+/* Ensure top navbar is always visible and fixed - highest priority */
+nav[class*="fixed top-0"],
+.fixed.top-0[class*="NavBar"],
+nav.fixed.top-0,
+nav[style*="position: fixed"][style*="top: 0"],
+nav.fixed.top-0.left-0.right-0 {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 50 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  display: block !important;
+  transform: translateZ(0) !important;
+  will-change: auto !important;
+  pointer-events: auto !important;
+}
+
+/* Ensure bottom navigation is always accessible - highest priority */
+nav[class*="fixed bottom-0"],
+.fixed.bottom-0,
+nav[style*="position: fixed"][style*="bottom: 0"],
+nav.fixed.bottom-0.left-0.right-0 {
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 50 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  display: block !important;
+  transform: translateZ(0) !important;
+  will-change: auto !important;
+  pointer-events: auto !important;
+}
+
+/* App shell layout - flex column structure */
+html {
+  position: relative !important;
+  overflow-x: hidden !important;
+  overflow-y: hidden !important; /* HTML should not scroll */
+  height: 100% !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+body {
+  position: relative !important;
+  overflow-x: hidden !important;
+  overflow-y: hidden !important; /* Body should not scroll - only main content scrolls */
+  height: 100% !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-y !important;
+}
+
+/* Ensure App container uses flex layout */
+#root {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  width: 100% !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+/* App wrapper - flex column shell */
+.App {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  width: 100% !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+/* Ensure AnimatedRoutes wrapper allows pages to fill available space */
+.App > div:first-child {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  width: 100% !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+/* Main content area - scrollable between fixed navbars */
+main[class*="overflow-y-auto"],
+main.scrollable-content,
+.PageContainer main {
+  position: relative !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  scroll-behavior: smooth !important;
+  touch-action: pan-y !important;
+  overscroll-behavior: contain !important;
+  will-change: scroll-position !important;
+}
+
+/* Ensure PageContainer children are responsive */
+.PageContainer main > * {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Responsive padding adjustments */
+@media (max-width: 640px) {
+  .PageContainer main {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .PageContainer main {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+}
+
+@media (min-width: 1025px) {
+  .PageContainer main {
+    padding-left: 1.5rem !important;
+    padding-right: 1.5rem !important;
+  }
+}
+
+/* Prevent parent containers from creating new stacking contexts that break fixed positioning */
+div[class*="min-h-screen"],
+div[class*="relative"],
+div[class*="absolute"] {
+  /* Don't create new stacking context unless necessary */
+}
+
+/* Exception: Allow overflow-hidden only on specific containers, not on main page containers */
+div.min-h-screen:not([class*="overflow-hidden"]) {
+  overflow-x: hidden !important;
+}
+
+/* Force navbars to always be visible - override any possible hiding */
+nav.fixed.top-0,
+nav.fixed.bottom-0 {
+  position: fixed !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  display: block !important;
+  pointer-events: auto !important;
+  transform: translateZ(0) !important;
+}
+
+/* Ensure navbars are not affected by scroll */
+nav.fixed.top-0 {
+  top: 0 !important;
+  transform: translateZ(0) translateY(0) !important;
+}
+
+nav.fixed.bottom-0 {
+  bottom: 0 !important;
+  transform: translateZ(0) translateY(0) !important;
+}
+
+/* ============================================
+   GLOBAL LAYOUT & SCROLLING FIXES
+   ============================================ */
+
+/* CRITICAL: Top navbar fixed height - prevent content overlap and layout shifts */
+nav.fixed.top-0 {
+  height: var(--top-navbar-height, 64px) !important;
+  maxHeight: var(--top-navbar-height, 64px) !important;
+  minHeight: var(--top-navbar-height, 64px) !important;
+  overflow: hidden !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 50 !important;
+  width: 100% !important;
+  transition: none !important; /* Prevent visual jumps during route changes */
+  will-change: auto !important; /* Prevent layout thrashing */
+}
+
+/* CRITICAL: Bottom navbar fixed height - prevent growing */
+nav.fixed.bottom-0 {
+  height: var(--bottom-navbar-height, 60px) !important;
+  maxHeight: var(--bottom-navbar-height, 60px) !important;
+  minHeight: var(--bottom-navbar-height, 60px) !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: row !important;
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 10000 !important;
+  width: 100% !important;
+  transition: none !important; /* Prevent visual jumps during route changes */
+  justify-content: space-around !important;
+  align-items: center !important;
+  pointer-events: auto !important;
+  isolation: isolate !important;
+}
+
+/* Ensure bottom navbar buttons are always clickable */
+nav.fixed.bottom-0 button,
+nav.fixed.bottom-0 a {
+  pointer-events: auto !important;
+  z-index: 10001 !important;
+  position: relative !important;
+  touch-action: manipulation !important;
+  -webkit-tap-highlight-color: transparent !important;
+  cursor: pointer !important;
+}
+
+/* Ensure bottom navbar container and children are always interactive */
+nav.fixed.bottom-0,
+nav.fixed.bottom-0 > * {
+  pointer-events: auto !important;
+}
+
+/* Bottom navbar nav items - prevent growing */
+nav.fixed.bottom-0 > div {
+  flex: 0 0 auto !important;
+  height: 100% !important;
+  overflow: hidden !important;
+}
+
+nav.fixed.bottom-0 a,
+nav.fixed.bottom-0 button {
+  min-height: 44px !important;
+  min-width: 44px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 4px 8px !important;
+}
+
+/* Main content wrapper - provides consistent padding, pages handle scrolling */
+.main-content-wrapper {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  width: 100% !important;
+  position: relative !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+  padding-left: 0 !important;
+  /* Consistent padding prevents layout shifts between routes */
+  transition: none !important;
+}
+
+/* Sidebar is now part of flex layout, no padding needed */
+/* Removed padding-left as sidebar occupies space in flex container */
+
+/* Universal scroll container for pages that don't use PageContainer */
+.main-content-wrapper > *:not(.PageContainer) {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  width: 100% !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  scroll-behavior: smooth !important;
+  touch-action: pan-y !important;
+  overscroll-behavior: contain !important;
+}
+
+/* PageContainer - scrollable content area with consistent layout */
+.PageContainer {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  width: 100% !important;
+  position: relative !important;
+  overflow: hidden !important;
+  /* Prevent layout shifts during route changes */
+  transition: none !important;
+}
+
+.PageContainer > main {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  width: 100% !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  scroll-behavior: smooth !important;
+  touch-action: pan-y !important;
+  overscroll-behavior: contain !important;
+}
+
+/* Ensure all scrollable content areas work properly */
+main.scrollable-content,
+main[class*="overflow-y-auto"],
+.scrollable-content {
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  scroll-behavior: smooth !important;
+  touch-action: pan-y !important;
+}
+
+/* Page wrapper divs - ensure proper height constraints */
+.App > div > div > div > div {
+  height: 100% !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* Auth pages (login, signup) should fill full viewport without gaps */
+.App > div > div > div > div[style*="height: 100vh"],
+.App > div > div > div > div[style*="height: calc"] {
+  height: 100vh !important;
+  height: calc(var(--vh, 1vh) * 100) !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  position: relative !important;
+}
+
+/* Fix for pages that use h-screen - convert to h-full */
+.App > div > div > div > div[class*="h-screen"] {
+  height: 100% !important;
+  max-height: 100% !important;
+}
+
+/* Ensure pages with flex layout work properly */
+.App > div > div > div > div[style*="display: flex"] {
+  height: 100% !important;
+  min-height: 0 !important;
+}
+
+/* Remove overflow-hidden that blocks scrolling on page wrappers */
+.App > div > div > div > div[class*="overflow-hidden"]:not(.PageContainer):not([class*="PageContainer"]) {
+  overflow: visible !important;
+}
+
+/* Motion div wrappers should allow scrolling */
+div[style*="display: flex"][style*="flexDirection: column"] {
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+}
+
+/* Ensure route wrapper divs (motion.div) allow scrolling */
+.main-content-wrapper > div > div {
+  height: 100% !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* Pages without PageContainer should scroll */
+.main-content-wrapper > div > div > div:not(.PageContainer) {
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  scroll-behavior: smooth !important;
+}
+
+/* Responsive: Ensure no horizontal overflow on mobile */
+@media (max-width: 768px) {
+  .main-content-wrapper,
+  .PageContainer,
+  .PageContainer > main {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+  
+  /* Mobile: Ensure proper touch scrolling */
+  .main-content-wrapper > *,
+  .PageContainer > main {
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
+  }
+}
+
+/* Desktop: Smooth scrolling */
+@media (min-width: 769px) {
+  .main-content-wrapper > *,
+  .PageContainer > main {
+    scroll-behavior: smooth !important;
+  }
+}
+
+/* Home page layout - responsive sidebar and main content */
+@media (min-width: 1024px) {
+  /* Desktop: Sidebar and main content side by side */
+  .home-layout-container {
+    display: flex !important;
+    flex-direction: row !important;
+    height: 100% !important;
+    width: 100% !important;
+  }
+  
+  /* Desktop sidebar - fixed width */
+  .home-layout-container > div:first-child {
+    flex-shrink: 0 !important;
+    width: 320px !important;
+    max-width: 360px !important;
+    height: 100% !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+  
+  /* Desktop main content - flexible */
+  .home-layout-container > div:last-child {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    height: 100% !important;
+  }
+}
+
+@media (max-width: 1023px) {
+  /* Mobile: Stack layout */
+  .home-layout-container {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    width: 100% !important;
+  }
+}
+
+/* Removed duplicate html rules - handled above */
+
+@layer base {
+  body {
+    background-color: #f5f5f5;
+    color: #333333;
+    margin: 0;
+    font-family: "Inter", system-ui, -apple-system, sans-serif;
+    transition: background-color 0.3s ease;
+    position: relative !important;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important; /* Body should not scroll - only main content scrolls */
+    height: 100% !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    background-color: #ffcb2b;
+    color: #000000;
+    @apply font-bold rounded-full px-6 py-3 hover:opacity-90 transition-all duration-200;
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(255, 203, 43, 0.4);
+  }
+
+  .btn-secondary {
+    @apply bg-black text-white font-bold rounded-full px-6 py-3 hover:opacity-90 transition-all duration-200;
+  }
+
+  .btn-secondary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+  }
+
+  .btn-outline {
+    border: 2px solid #ffcb2b;
+    color: #ffcb2b;
+    @apply font-bold rounded-full px-6 py-3 hover:text-black transition-all duration-200;
+  }
+
+  .btn-outline:hover {
+    background-color: #ffcb2b;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(255, 203, 43, 0.3);
+  }
+
+  .card {
+    @apply bg-white rounded-3xl shadow-lg;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:border-transparent;
+  }
+
+  .input-field:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px #ffcb2b;
+  }
+}
+
+/* Custom Scrollbar Styles */
+@layer utilities {
+  /* Webkit browsers (Chrome, Safari, Edge) */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: #f9fafb;
+    border-radius: 4px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 4px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+  }
+
+  /* Firefox */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #d1d5db #f9fafb;
+  }
+
+  /* Smooth scrolling for chat */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 10px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+
+  /* Smooth scroll behavior */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Utility class for scrollable containers */
+  .scrollable {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
+  }
+
+  /* Utility class to disable pointer events on inactive overlays */
+  .no-pointer {
+    pointer-events: none !important;
+  }
+
+  /* Optimize performance for animations */
+  * {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Removed duplicate body rules - handled in @layer base */
+
+  /* Smooth transitions for all interactive elements */
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    transition: all 0.2s ease;
+  }
+
+  /* Hardware acceleration for smoother animations */
+  .App,
+  [class*="motion"] {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    perspective: 1000px;
+  }
+
+  /* Reduce motion for users who prefer it */
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* Toast Notifications - Always Visible in Viewport (Fixed to Viewport, Not Page) */
+/* Target react-hot-toast container - ensure it's fixed to viewport and below navbar */
+.toast-container-global,
+div[id^="react-hot-toast"],
+div[id*="react-hot-toast"] {
+  position: fixed !important;
+  top: calc(var(--navbar-height, 64px) + 20px) !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 99999 !important;
+  pointer-events: none !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  display: block !important;
+}
+
+/* Ensure toast items are interactive and visible */
+.toast-container-global > div,
+div[id^="react-hot-toast"] > div,
+div[id*="react-hot-toast"] > div {
+  pointer-events: auto !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* Profile Left Sidebar - Mobile styling - Only visible when isOpen is true (controlled by React) */
+@media (max-width: 1023px) {
+  .mobile-left-sidebar.mobile-left-sidebar {
+    width: 85vw !important;
+    max-width: 380px !important;
+    min-width: 300px !important;
+    height: calc(100vh - var(--navbar-height, 64px) - var(--bottom-nav-height, 64px)) !important;
+    min-height: calc(100vh - var(--navbar-height, 64px) - var(--bottom-nav-height, 64px)) !important;
+    max-height: calc(100vh - var(--navbar-height, 64px) - var(--bottom-nav-height, 64px)) !important;
+    top: var(--navbar-height, 64px) !important;
+    bottom: var(--bottom-nav-height, 64px) !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Even more specific to override any inline or other styles */
+  div.mobile-left-sidebar.fixed.left-0,
+  div.mobile-left-sidebar.fixed.left-0.top-0.bottom-0 {
+    width: 50vw !important;
+    max-width: 320px !important;
+    min-width: 200px !important;
+    height: calc(100vh - var(--navbar-height, 64px) - var(--bottom-nav-height, 64px)) !important;
+    min-height: calc(100vh - var(--navbar-height, 64px) - var(--bottom-nav-height, 64px)) !important;
+    max-height: calc(100vh - var(--navbar-height, 64px) - var(--bottom-nav-height, 64px)) !important;
+    top: var(--navbar-height, 64px) !important;
+    bottom: var(--bottom-nav-height, 64px) !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Target Framer Motion divs specifically */
+  [class*="mobile-left-sidebar"] {
+    width: 50vw !important;
+    max-width: 320px !important;
+    min-width: 200px !important;
+    height: calc(100vh - var(--navbar-height, 64px) - var(--bottom-nav-height, 64px)) !important;
+    min-height: calc(100vh - var(--navbar-height, 64px) - var(--bottom-nav-height, 64px)) !important;
+    max-height: calc(100vh - var(--navbar-height, 64px) - var(--bottom-nav-height, 64px)) !important;
+    top: var(--navbar-height, 64px) !important;
+    bottom: var(--bottom-nav-height, 64px) !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+}
+
+/* Ensure chat options dropdown is always visible */
+div[class*="fixed"][style*="zIndex: 100000"],
+div[style*="z-index: 100000"] {
+  z-index: 100000 !important;
+  position: fixed !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  display: block !important;
+  pointer-events: auto !important;
+}
