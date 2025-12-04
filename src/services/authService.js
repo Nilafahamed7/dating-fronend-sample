@@ -45,14 +45,5 @@ export const authService = {
     const response = await api.post('/auth/logout');
     return response.data;
   },
-
-  exchangeFirebaseToken: async (idToken, phoneNumber, signupData = null) => {
-    const response = await api.post('/auth/firebase-token-verify', {
-      idToken,
-      phoneNumber,
-      ...(signupData && { signupData })
-    });
-    return response.data;
-  },
 };
 

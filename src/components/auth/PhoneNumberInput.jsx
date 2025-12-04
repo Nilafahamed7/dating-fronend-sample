@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { validatePhoneNumber, normalizePhoneNumber } from '../../services/firebaseSMSService';
+import { validatePhoneNumber, normalizePhoneNumber } from '../../utils/phoneValidation';
 
 // Common country codes
 const COUNTRIES = [

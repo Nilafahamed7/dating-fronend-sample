@@ -5,7 +5,7 @@ import LoadingSpinner from '../common/LoadingSpinner';
 import PasswordInput from './PasswordInput';
 import SocialLogin from './SocialLogin';
 import { GENDERS } from '../../utils/constants';
-import { validatePhoneNumber, normalizePhoneNumber } from '../../services/firebaseSMSService';
+import { validatePhoneNumber, normalizePhoneNumber } from '../../utils/phoneValidation';
 import toast from 'react-hot-toast';
 
 export default function SignupForm() {
@@ -63,7 +63,7 @@ export default function SignupForm() {
       return;
     }
 
-    // Validate phone format using Firebase SMS service
+    // Validate phone format
     const phoneValidation = validatePhoneNumber(formData.phone);
     if (!phoneValidation.valid) {
       toast.error(phoneValidation.error || 'Invalid phone number format');

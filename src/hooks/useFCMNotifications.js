@@ -1,10 +1,35 @@
 import { useEffect, useRef, useState, useContext } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
-import { getFCMToken, onForegroundMessage, requestNotificationPermission } from '../config/firebase';
 import { notificationService } from '../services/notificationService';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import FullScreenNotification from '../components/notifications/FullScreenNotification';
+
+// Stubs for Firebase functions (Firebase removed)
+const requestNotificationPermission = async () => {
+  if (!('Notification' in window)) {
+    return null;
+  }
+  if (Notification.permission === 'granted') {
+    return 'stub-token';
+  }
+  if (Notification.permission !== 'denied') {
+    const permission = await Notification.requestPermission();
+    if (permission === 'granted') {
+      return 'stub-token';
+    }
+  }
+  return null;
+};
+
+const getFCMToken = async () => {
+  return 'stub-token';
+};
+
+const onForegroundMessage = async (callback) => {
+  // Return a no-op unsubscribe function
+  return () => {};
+};
 
 /**
  * Custom hook to handle FCM notifications
