@@ -58,6 +58,10 @@ export default function NotificationBell() {
                 loadUnreadCount();
             }, 500);
             return () => clearTimeout(timeout);
+        } else {
+            // When panel opens, immediately set count to 0 (optimistic update)
+            // All notifications will be marked as read when panel opens
+            setUnreadCount(0);
         }
     }, [showNotificationPanel]);
 

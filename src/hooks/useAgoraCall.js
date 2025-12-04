@@ -37,6 +37,10 @@ export const useAgoraCall = () => {
   useEffect(() => {
     const initClient = async () => {
       try {
+        // Set log level to WARNING to reduce console noise (only show warnings and errors)
+        // Set to LOG_LEVEL.INFO or LOG_LEVEL.DEBUG if you need more verbose logging
+        AgoraRTC.setLogLevel(2); // 0=DEBUG, 1=INFO, 2=WARNING, 3=ERROR, 4=NONE
+        
         const agoraClient = AgoraRTC.createClient({
           mode: 'rtc',
           codec: 'vp8'

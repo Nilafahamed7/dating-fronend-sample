@@ -61,9 +61,8 @@ export default function GroupDetails() {
   // Debug logging - more detailed
   useEffect(() => {
     if (normalizedGroupId) {
-      );
-      );
-      }
+      // Debug logging can be added here if needed
+    }
   }, [normalizedGroupId, groupMessages, messages, isMember, loading, group, canCreateOrJoin]);
 
   // Sync group from context or load if not available
@@ -88,11 +87,11 @@ export default function GroupDetails() {
           try {
             const loadedMessages = await loadGroupMessages(normalizedGroupId, 50);
             if (loadedMessages && loadedMessages.length > 0) {
-              } else {
-              }
+              // Messages loaded successfully
+            }
             setTimeout(() => scrollToBottom(), 300);
           } catch (error) {
-            :', error);
+            // Error loading messages - retry if attempts remaining
             if (retries > 0) {
               setTimeout(() => loadMessagesWithRetry(retries - 1), 1000);
             }
@@ -182,10 +181,6 @@ export default function GroupDetails() {
             const gId = g._id?.toString() || g.id?.toString() || g.groupId?.toString();
             return gId === groupId?.toString();
           });
-
-      || g.id?.toString() || g.groupId?.toString();
-        return gId === groupId?.toString();
-      }));
       setIsMember(memberStatus);
 
       // Check if current user is the creator

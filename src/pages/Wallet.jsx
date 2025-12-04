@@ -79,9 +79,6 @@ export default function Wallet() {
       // Load all transactions without any filtering - backend returns all transaction types
       // Increase limit to show more transactions (500 to ensure we get everything)
       const response = await walletService.getTransactions({ page: 1, limit: 500 });
-      || [])],
-        types: [...new Set(response.transactions?.map(t => t.type) || [])],
-      });
       setTransactions(response.transactions || []);
     } catch (error) {
       setTransactions([]);
@@ -535,6 +532,9 @@ export default function Wallet() {
                   // For call transactions, coins can be negative (charge) or positive (receive)
                   if (txn.purpose === 'call') {
                     coinsValue = txn.coins !== undefined && txn.coins !== null ? txn.coins : (txn.metadata?.billedCoins || 0);
+                  } else if (txn.purpose === 'gift' && txn.metadata?.type === 'gift_sent') {
+                    // For gift sent: coins is negative, use absolute value or metadata.giftCost
+                    coinsValue = txn.metadata?.giftCost || (txn.coins !== undefined && txn.coins !== null ? Math.abs(txn.coins) : 0);
                   } else if (txn.coins !== undefined && txn.coins !== null && txn.coins > 0) {
                     coinsValue = txn.coins;
                   } else if (txn.metadata?.coinsPurchased) {
@@ -729,6 +729,7 @@ export default function Wallet() {
 
                   // Call Charge Transaction (Debit)
                   if (isCallCharge && (transactionFilter === 'call' || transactionFilter === 'all')) {
+                    // Trust server's callType (voice or video, no mixed)
                     const callType = txn.metadata?.callType || 'voice';
                     const durationSeconds = txn.metadata?.durationSeconds || 0;
                     const durationMins = Math.floor(durationSeconds / 60);
@@ -801,6 +802,7 @@ export default function Wallet() {
                   // Call Receive Transaction (Credit) - Only show for female users
                   // Male users should not see received transactions
                   if (isCallReceive && (transactionFilter === 'call' || transactionFilter === 'all') && user?.gender !== 'male') {
+                    // Trust server's callType (voice or video, no mixed)
                     const callType = txn.metadata?.callType || 'voice';
                     const durationSeconds = txn.metadata?.durationSeconds || 0;
                     const durationMins = Math.floor(durationSeconds / 60);

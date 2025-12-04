@@ -13,7 +13,6 @@ import { useNavBarContext } from '../components/common/GlobalNavBar';
 import PageContainer from '../components/common/PageContainer';
 import FilterModal from '../components/filters/FilterModal';
 import ProfileLeftSidebar from '../components/sidebar/ProfileLeftSidebar';
-import NotificationPanel from '../components/notifications/NotificationPanel';
 import { FunnelIcon, Squares2X2Icon, RectangleStackIcon, SparklesIcon, UserCircleIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { calculateAge, calculateDistance } from '../utils/helpers';

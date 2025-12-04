@@ -495,13 +495,13 @@ export default function ProfileLeftSidebar({ isOpen, onClose }) {
         return;
       }
 
-      // For premium males: calculate free minutes from premiumCallMinutesUsed (first 100 mins free)
+      // For premium males: calculate free minutes from premiumCallMinutesUsed (first 50 mins free)
       if (user?.gender?.toLowerCase() === 'male') {
         const premiumCallMinutesUsed = user?.premiumCallMinutesUsed || 0;
-        const freeMinutesRemaining = Math.max(0, 100 - premiumCallMinutesUsed);
+        const freeMinutesRemaining = Math.max(0, 50 - premiumCallMinutesUsed);
         setPremiumStatus({
           freeMinutesRemaining,
-          freeMinutesTotal: 100,
+          freeMinutesTotal: 50,
         });
         setLoadingPremium(false);
         return;
@@ -847,7 +847,7 @@ export default function ProfileLeftSidebar({ isOpen, onClose }) {
                   </div>
                   <div className="flex items-center gap-2 text-xs text-gray-700">
                     <CheckCircleIcon className="w-4 h-4 text-green-500 flex-shrink-0" />
-                    <span className="truncate min-w-0">Free Calls (first 100 min)</span>
+                    <span className="truncate min-w-0">Free Calls (first 50 min)</span>
                   </div>
                 </div>
 
@@ -1507,7 +1507,7 @@ export default function ProfileLeftSidebar({ isOpen, onClose }) {
                       </div>
                       <div className="flex items-center gap-2 text-xs text-gray-700">
                         <CheckCircleIcon className="w-4 h-4 text-green-500 flex-shrink-0" />
-                        <span className="truncate min-w-0">Free Calls (first 100 min)</span>
+                        <span className="truncate min-w-0">Free Calls (first 50 min)</span>
                       </div>
                     </div>
 

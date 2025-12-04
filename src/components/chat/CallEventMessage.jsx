@@ -23,16 +23,12 @@ export default function CallEventMessage({ callEvent, onMissedCallTap, isCurrent
                       callEvent.status === 'unpaid_pending';
   // Only mark as failed if status is explicitly 'failed' or 'failed_billing'
   const isFailed = callEvent.status === 'failed' || callEvent.status === 'failed_billing';
-  // Use authoritative callType from server (trust server, don't infer)
-  const isVideo = callEvent.callType === 'video' || callEvent.callType === 'mixed';
-  const isMixed = callEvent.callType === 'mixed';
+  // Trust server's authoritative callType (voice or video, no mixed)
+  const isVideo = callEvent.callType === 'video';
   const duration = formatDuration(callEvent.durationSeconds);
   const billedCoins = callEvent.billedCoins || 0;
   const receiverShare = callEvent.receiverShare || callEvent.girlShareCoins || 0;
   const adminShare = callEvent.adminShare || 0;
-  const voiceMinutes = callEvent.voiceMinutes || 0;
-  const videoMinutes = callEvent.videoMinutes || 0;
-  const hasBothSegments = voiceMinutes > 0 && videoMinutes > 0;
 
   // Determine if current user is the caller or receiver
   const currentUserId = user?._id?.toString();
@@ -55,7 +51,7 @@ export default function CallEventMessage({ callEvent, onMissedCallTap, isCurrent
   if (isCompleted) {
     // Show "Outgoing" or "Incoming" prefix for completed calls
     const callDirection = isCaller ? 'Outgoing' : 'Incoming';
-    const callTypeLabel = isMixed ? 'mixed call' : (isVideo ? 'video call' : 'voice call');
+    const callTypeLabel = isVideo ? 'video call' : 'voice call';
     displayText = `${callDirection} ${callTypeLabel}${duration ? ` • ${duration}` : ''}`;
   } else if (isMissed) {
     // Receiver sees "Missed call", caller sees "Cancelled call"
@@ -101,12 +97,7 @@ export default function CallEventMessage({ callEvent, onMissedCallTap, isCurrent
         onClick={handleClick}
       >
         <div className="flex items-center gap-2">
-          {isMixed ? (
-            <div className="flex items-center gap-1">
-              <PhoneIcon className="w-4 h-4" />
-              <VideoCameraIcon className="w-4 h-4" />
-            </div>
-          ) : isVideo ? (
+          {isVideo ? (
             <VideoCameraIcon className="w-4 h-4" />
           ) : (
             <PhoneIcon className="w-4 h-4" />

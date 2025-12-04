@@ -110,13 +110,22 @@ export const isPremiumUser = () => {
 
 /**
  * Vibrate device (if supported)
+ * Note: Browser may block vibration until user interaction - this is expected behavior
  */
 export const vibrate = (pattern = [200, 100, 200]) => {
   if ('vibrate' in navigator) {
     try {
-      navigator.vibrate(pattern);
+      // Attempt to vibrate - may be blocked by browser until user interaction
+      // This is a browser security feature and the warning is harmless
+      const result = navigator.vibrate(pattern);
+      // If vibrate returns false, it was blocked (but no error thrown)
+      if (result === false) {
+        // Silently handle - vibration blocked by browser policy
+        return;
+      }
     } catch (error) {
-      // Error handling for vibration
+      // Silently handle vibration errors (browser blocking, not supported, etc.)
+      // These are expected in some browsers and don't affect functionality
     }
   }
 };

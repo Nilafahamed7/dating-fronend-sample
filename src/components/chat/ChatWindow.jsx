@@ -310,22 +310,17 @@ export default function ChatWindow({ matchId, otherUser }) {
             const callerIdFromTx = tx.isCaller ? user._id : otherUser._id;
             const calleeIdFromTx = tx.isCaller ? otherUser._id : user._id;
 
-            // Use authoritative callType from server (computed from voiceMinutes/videoMinutes)
-            // Fallback to inferring from minutes only if callType is missing
-            const authoritativeCallType = tx.callType ||
-                                         (tx.videoMinutes > 0 && tx.voiceMinutes > 0 ? 'mixed' :
-                                          tx.videoMinutes > 0 ? 'video' : 'voice');
+            // Trust server's authoritative callType (voice or video, no mixed)
+            const authoritativeCallType = tx.callType || 'voice';
 
             return {
               id: `call-${tx.id || tx.callId}`,
               type: 'call_event',
-              callType: authoritativeCallType, // Use server's authoritative callType
+              callType: authoritativeCallType, // Trust server's callType
               status: tx.status === 'completed' || tx.status === 'ended' || tx.status === 'success' || tx.status === 'paid'
                 ? 'completed'  // Map all success statuses to 'completed'
                 : tx.status || 'completed', // Preserve other statuses (cancelled, missed, failed_billing)
               durationSeconds: tx.durationSeconds || 0,
-              voiceMinutes: tx.voiceMinutes || 0,
-              videoMinutes: tx.videoMinutes || 0,
               timestamp: tx.attemptedAt || tx.startedAt || tx.createdAt,
               callId: tx.callId,
               transactionId: tx.id, // IMPORTANT: Include transactionId for idempotency
@@ -395,11 +390,23 @@ export default function ChatWindow({ matchId, otherUser }) {
           const isCaller = callMetadata.payerId ? (callMetadata.payerId.toString() === user?._id?.toString()) :
                           (msg.sender?._id?.toString() === user?._id?.toString() || msg.sender?.toString() === user?._id?.toString());
 
+          // Determine status: use transaction status if available, otherwise infer from message type
+          let callStatus = 'completed';
+          if (callMetadata.status) {
+            // Use status from metadata if available
+            callStatus = (callMetadata.status === 'completed' || callMetadata.status === 'ended' || callMetadata.status === 'success' || callMetadata.status === 'paid')
+              ? 'completed'
+              : callMetadata.status;
+          } else {
+            // Fallback to message type
+            callStatus = callMetadata.type === 'call_completed' ? 'completed' : 'missed';
+          }
+
           allItems.push({
             id: `call-${eventId || msg._id}`,
             type: 'call_event',
             callType: callMetadata.callType || 'voice',
-            status: callMetadata.type === 'call_completed' ? 'completed' : 'missed',
+            status: callStatus,
             durationSeconds: callMetadata.durationSeconds || 0,
             timestamp: callMetadata.startedAt || callMetadata.attemptedAt || msg.createdAt || msg.timestamp,
             callId: callMetadata.callId,
@@ -475,11 +482,8 @@ export default function ChatWindow({ matchId, otherUser }) {
         const callerId = transactionData.initiatorId;
         const calleeId = transactionData.receiverId;
 
-        // Use authoritative callType from server (computed from voiceMinutes/videoMinutes)
-        // Fallback to inferring from minutes only if callType is missing
-        const authoritativeCallType = transactionData.callType ||
-                                     (transactionData.videoMinutes > 0 && transactionData.voiceMinutes > 0 ? 'mixed' :
-                                      transactionData.videoMinutes > 0 ? 'video' : 'voice');
+        // Trust server's authoritative callType (voice or video, no mixed)
+        const authoritativeCallType = transactionData.callType || 'voice';
 
         // Check for duplicate by transactionId (primary dedupe key) or callId (secondary)
         const transactionKey = transactionData.transactionId || transactionData.callId;
@@ -490,16 +494,16 @@ export default function ChatWindow({ matchId, otherUser }) {
         const callEvent = {
           id: `call-transaction-${transactionData.transactionId || transactionData.callId}`,
           type: 'call_event',
-          callType: authoritativeCallType, // Use server's authoritative callType
+          callType: authoritativeCallType, // Trust server's callType
           // Map status correctly - use server status directly
-          status: transactionData.status === 'paid'
-            ? 'completed'  // Map 'paid' to 'completed' for display
-            : transactionData.status === 'completed'
-            ? 'completed'
-            : transactionData.status || 'completed', // Default to completed for unknown statuses
+          // Map all success statuses to 'completed' for display
+          status: (transactionData.status === 'paid' || 
+                   transactionData.status === 'completed' || 
+                   transactionData.status === 'ended' || 
+                   transactionData.status === 'success')
+            ? 'completed'  // Map all success statuses to 'completed' for display
+            : transactionData.status || 'completed', // Default to completed for unknown statuses (assume success)
           durationSeconds: transactionData.durationSeconds || 0,
-          voiceMinutes: transactionData.voiceMinutes || 0,
-          videoMinutes: transactionData.videoMinutes || 0,
           timestamp: transactionData.timestamp || new Date().toISOString(),
           callId: transactionData.callId,
           transactionId: transactionData.transactionId, // Primary dedupe key
@@ -545,10 +549,10 @@ export default function ChatWindow({ matchId, otherUser }) {
 
         // Reload call events after a delay to ensure we have complete data
         // This helps if the real-time event arrives before the transaction is fully persisted
-        // Increased delay to 5 seconds to ensure transaction is fully saved
+        // Reduced delay to 2 seconds for faster updates
         setTimeout(() => {
           loadCallEvents();
-        }, 5000);
+        }, 2000);
       }
     };
 

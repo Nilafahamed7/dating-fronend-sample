@@ -177,6 +177,7 @@ export default function ProgressPage() {
     });
     const [loading, setLoading] = useState(true);
     const [freeMinutesRemaining, setFreeMinutesRemaining] = useState(0);
+    const [freeMinutesTotal, setFreeMinutesTotal] = useState(100); // Default, will be updated based on user type
     const [selectedMetrics, setSelectedMetrics] = useState(['profileViews', 'matches', 'superlikes']);
     const [recentEvents, setRecentEvents] = useState([]);
 
@@ -207,11 +208,28 @@ export default function ProgressPage() {
 
                 if (premiumResponse?.success && premiumResponse.active) {
                     const freeMinutes = premiumResponse.freeMinutesRemaining ?? premiumResponse.data?.freeMinutesRemaining ?? user?.freeIncomingMinutesRemaining ?? 0;
-                    const totalMinutes = premiumResponse.freeMinutesTotal ?? premiumResponse.data?.freeMinutesTotal ?? 100;
+                    // For premium males: 50 minutes, for others: 100 minutes (or from API)
+                    const isPremiumMale = user?.isPremium && user?.gender?.toLowerCase() === 'male';
+                    const defaultTotalMinutes = isPremiumMale ? 50 : 100;
+                    const totalMinutes = premiumResponse.freeMinutesTotal ?? premiumResponse.data?.freeMinutesTotal ?? defaultTotalMinutes;
+                    setFreeMinutesTotal(totalMinutes);
                     setFreeMinutesRemaining(Math.max(0, Math.min(totalMinutes, freeMinutes)));
-                } else if (user?.isPremium && user?.freeIncomingMinutesRemaining !== undefined) {
-                    setFreeMinutesRemaining(Math.max(0, Math.min(100, user.freeIncomingMinutesRemaining)));
+                } else if (user?.isPremium) {
+                    // For premium males: calculate from premiumCallMinutesUsed (50 mins total)
+                    if (user?.gender?.toLowerCase() === 'male') {
+                        const premiumCallMinutesUsed = user?.premiumCallMinutesUsed || 0;
+                        const freeMinutesRemaining = Math.max(0, 50 - premiumCallMinutesUsed);
+                        setFreeMinutesTotal(50);
+                        setFreeMinutesRemaining(freeMinutesRemaining);
+                    } else if (user?.freeIncomingMinutesRemaining !== undefined) {
+                        setFreeMinutesTotal(100);
+                        setFreeMinutesRemaining(Math.max(0, Math.min(100, user.freeIncomingMinutesRemaining)));
+                    } else {
+                        setFreeMinutesTotal(100);
+                        setFreeMinutesRemaining(0);
+                    }
                 } else {
+                    setFreeMinutesTotal(100);
                     setFreeMinutesRemaining(0);
                 }
 
@@ -349,7 +367,7 @@ export default function ProgressPage() {
                                     <KPICard
                                         icon={PhoneIcon}
                                         label="Call Mins Used"
-                                        value={loading ? '...' : `${Math.max(0, 100 - (freeMinutesRemaining || 0))} / 100`}
+                                        value={loading ? '...' : `${Math.max(0, freeMinutesTotal - (freeMinutesRemaining || 0))} / ${freeMinutesTotal}`}
                                         trend={`${Math.max(0, freeMinutesRemaining || 0)} left`}
                                         color="bg-gradient-to-br from-amber-50 to-orange-100 text-amber-600"
                                     />

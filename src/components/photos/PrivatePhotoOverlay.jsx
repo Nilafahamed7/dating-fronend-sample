@@ -26,3 +26,7 @@ export default function PrivatePhotoOverlay({ coinCost, onUnlock, isUnlocking = 
 }
 
 
+
+
+
+

@@ -21,32 +21,99 @@ export default function Calls() {
   const seenTransactionIdsRef = useRef(new Set()); // Track seen transaction IDs for deduplication
 
   useEffect(() => {
+    // Reset seen transaction IDs when page changes
+    if (page === 1) {
+      seenTransactionIdsRef.current.clear();
+    }
     loadTransactions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
+  
+  // Reload when user changes (in case user logs in/out)
+  useEffect(() => {
+    if (user?._id) {
+      seenTransactionIdsRef.current.clear();
+      setPage(1);
+      setTransactions([]);
+      loadTransactions();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?._id]);
 
   const loadTransactions = async () => {
     try {
       setLoading(true);
       const response = await callService.getCallTransactions(page, 20);
+      
+      // Debug: Log response to help diagnose issues
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Calls] API Response:', {
+          success: response.success,
+          transactionCount: response.transactions?.length || 0,
+          transactions: response.transactions,
+          pagination: response.pagination,
+        });
+      }
+      
       if (response.success) {
           let filteredTransactions = response.transactions || [];
+          
+          // Debug: Log filtered transactions
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[Calls] Filtered transactions before processing:', filteredTransactions.length);
+          }
 
-          // Deduplicate by transactionId/callId
+          // Deduplicate by transactionId/callId (only within current response)
           const uniqueTransactions = [];
           const seenInResponse = new Set();
           for (const tx of filteredTransactions) {
             const transactionKey = tx.id || tx.callId;
-            if (!seenInResponse.has(transactionKey) && !seenTransactionIdsRef.current.has(transactionKey)) {
+            // Only check for duplicates within the current response
+            // Don't check seenTransactionIdsRef here - that's for preventing duplicates when merging
+            if (!seenInResponse.has(transactionKey)) {
               seenInResponse.add(transactionKey);
-              seenTransactionIdsRef.current.add(transactionKey);
 
-              // Use authoritative callType from server
-              const authoritativeCallType = tx.callType ||
-                                           (tx.videoMinutes > 0 && tx.voiceMinutes > 0 ? 'mixed' :
-                                            tx.videoMinutes > 0 ? 'video' : 'voice');
+              // Trust server's authoritative callType (voice or video, no mixed)
+              const authoritativeCallType = tx.callType || 'voice';
+              
+              // Normalize status: map all success statuses to 'completed'
+              const normalizedStatus = (tx.status === 'paid' || 
+                                       tx.status === 'completed' || 
+                                       tx.status === 'ended' || 
+                                       tx.status === 'success')
+                ? 'completed'
+                : (tx.status || 'completed');
+              
+              // Ensure otherParty exists - create from participants if needed
+              let otherParty = tx.otherParty;
+              if (!otherParty && tx.participants && Array.isArray(tx.participants)) {
+                const currentUserId = user?._id?.toString();
+                const other = tx.participants.find(p => 
+                  (p.id?.toString() || p._id?.toString()) !== currentUserId
+                );
+                if (other) {
+                  otherParty = {
+                    id: other.id || other._id,
+                    name: other.name || 'Unknown',
+                    avatar: other.avatar || other.photos?.[0]?.url || null,
+                  };
+                }
+              }
+              
+              // Fallback if still no otherParty
+              if (!otherParty) {
+                otherParty = {
+                  id: null,
+                  name: 'Unknown',
+                  avatar: null,
+                };
+              }
+              
               uniqueTransactions.push({
                 ...tx,
-                callType: authoritativeCallType, // Use server's authoritative callType
+                callType: authoritativeCallType, // Trust server's callType
+                status: normalizedStatus, // Normalized status
+                otherParty: otherParty, // Ensure otherParty always exists
               });
             }
           }
@@ -74,17 +141,44 @@ export default function Calls() {
           }
 
           if (page === 1) {
+            // For page 1, replace all transactions
             setTransactions(finalTransactions);
+            // Update seen IDs for socket event deduplication
+            finalTransactions.forEach(tx => {
+              const key = tx.id || tx.callId;
+              if (key) {
+                seenTransactionIdsRef.current.add(key);
+              }
+            });
           } else {
+            // For subsequent pages, merge with deduplication
             setTransactions(prev => {
-              // Merge with deduplication
               const existingKeys = new Set(prev.map(tx => tx.id || tx.callId));
-              const newTransactions = finalTransactions.filter(tx => !existingKeys.has(tx.id || tx.callId));
+              const newTransactions = finalTransactions.filter(tx => {
+                const key = tx.id || tx.callId;
+                if (existingKeys.has(key)) {
+                  return false; // Skip if already in current list
+                }
+                // Add to seen IDs for socket event deduplication
+                if (key) {
+                  seenTransactionIdsRef.current.add(key);
+                }
+                return true;
+              });
               return [...prev, ...newTransactions];
             });
           }
           // Adjust hasMore based on filtered results
           setHasMore(finalTransactions.length === 20 && response.pagination.page < response.pagination.pages);
+          
+          // Debug: Log final result
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[Calls] Final transactions to display:', {
+              count: finalTransactions.length,
+              filter,
+              page,
+            });
+          }
       } else {
         toast.error('Failed to load call history');
       }
@@ -126,22 +220,90 @@ export default function Calls() {
         );
 
         if (existingIndex >= 0) {
+          // Get existing transaction for reference
+          const existingTx = prev[existingIndex];
+          
+          // Map status correctly - all success statuses should be 'completed'
+          const mappedStatus = (transactionData.status === 'paid' || 
+                                transactionData.status === 'completed' || 
+                                transactionData.status === 'ended' || 
+                                transactionData.status === 'success')
+            ? 'completed'
+            : (transactionData.status || existingTx.status);
+
+          // Ensure otherParty exists - create from participants if needed
+          let otherParty = transactionData.otherParty || existingTx.otherParty;
+          if (!otherParty && transactionData.participants && Array.isArray(transactionData.participants)) {
+            const currentUserId = user?._id?.toString();
+            const other = transactionData.participants.find(p => 
+              (p.id?.toString() || p._id?.toString()) !== currentUserId
+            );
+            if (other) {
+              otherParty = {
+                id: other.id || other._id,
+                name: other.name || 'Unknown',
+                avatar: other.avatar || other.photos?.[0]?.url || null,
+              };
+            }
+          }
+          
+          // Fallback if still no otherParty
+          if (!otherParty) {
+            otherParty = {
+              id: null,
+              name: 'Unknown',
+              avatar: null,
+            };
+          }
+
           // Update existing transaction with authoritative data
           const updated = [...prev];
           updated[existingIndex] = {
-            ...updated[existingIndex],
+            ...existingTx,
             ...transactionData,
-            id: transactionData.transactionId || updated[existingIndex].id,
-            callType: transactionData.callType || updated[existingIndex].callType, // Use authoritative callType
-            status: transactionData.status || updated[existingIndex].status,
+            id: transactionData.transactionId || existingTx.id,
+            callType: transactionData.callType || existingTx.callType, // Use authoritative callType
+            status: mappedStatus,
+            otherParty: otherParty, // Ensure otherParty always exists
           };
           return updated;
         }
 
-        // Use authoritative callType from server
-        const authoritativeCallType = transactionData.callType ||
-                                     (transactionData.videoMinutes > 0 && transactionData.voiceMinutes > 0 ? 'mixed' :
-                                      transactionData.videoMinutes > 0 ? 'video' : 'voice');
+        // Trust server's authoritative callType (voice or video, no mixed)
+        const authoritativeCallType = transactionData.callType || 'voice';
+
+        // Map status correctly - all success statuses should be 'completed'
+        const mappedStatus = (transactionData.status === 'paid' || 
+                              transactionData.status === 'completed' || 
+                              transactionData.status === 'ended' || 
+                              transactionData.status === 'success')
+          ? 'completed'
+          : (transactionData.status || 'completed');
+
+        // Ensure otherParty exists - create from participants if needed
+        let otherParty = transactionData.otherParty;
+        if (!otherParty && transactionData.participants && Array.isArray(transactionData.participants)) {
+          const currentUserId = user?._id?.toString();
+          const other = transactionData.participants.find(p => 
+            (p.id?.toString() || p._id?.toString()) !== currentUserId
+          );
+          if (other) {
+            otherParty = {
+              id: other.id || other._id,
+              name: other.name || 'Unknown',
+              avatar: other.avatar || other.photos?.[0]?.url || null,
+            };
+          }
+        }
+        
+        // Fallback if still no otherParty
+        if (!otherParty) {
+          otherParty = {
+            id: null,
+            name: 'Unknown',
+            avatar: null,
+          };
+        }
 
         // Add new transaction at the beginning
         return [{
@@ -149,7 +311,8 @@ export default function Calls() {
           id: transactionData.transactionId || transactionData.callId,
           callType: authoritativeCallType, // Use server's authoritative callType
           isCaller: transactionData.initiatorId === user?._id?.toString(),
-          status: transactionData.status || 'completed',
+          status: mappedStatus,
+          otherParty: otherParty, // Ensure otherParty always exists
         }, ...prev];
       });
 
@@ -164,12 +327,22 @@ export default function Calls() {
       loadTransactions();
     };
 
+    const handleCallEnded = (data) => {
+      // Reload transactions when a call ends to ensure we have the latest status
+      // Add a small delay to allow the transaction to be saved
+      setTimeout(() => {
+        loadTransactions();
+      }, 2000);
+    };
+
     socket.on('call:transaction', handleCallTransaction);
     socket.on('call:billing_failed', handleBillingFailed);
+    socket.on('call-ended', handleCallEnded);
 
     return () => {
       socket.off('call:transaction', handleCallTransaction);
       socket.off('call:billing_failed', handleBillingFailed);
+      socket.off('call-ended', handleCallEnded);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -312,26 +485,21 @@ export default function Calls() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3 flex-1">
                     <div className="relative">
-                      {tx.otherParty.avatar ? (
+                      {tx.otherParty?.avatar ? (
                         <img
                           src={tx.otherParty.avatar}
-                          alt={tx.otherParty.name}
+                          alt={tx.otherParty?.name || 'User'}
                           className="w-12 h-12 rounded-full object-cover"
                         />
                       ) : (
                         <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
                           <span className="text-gray-500 text-lg font-semibold">
-                            {tx.otherParty.name.charAt(0).toUpperCase()}
+                            {(tx.otherParty?.name || 'U').charAt(0).toUpperCase()}
                           </span>
                         </div>
                       )}
                       <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-1">
-                        {tx.callType === 'mixed' ? (
-                          <div className="flex items-center gap-0.5">
-                            <PhoneIcon className="w-3 h-3 text-green-600" />
-                            <VideoCameraIcon className="w-3 h-3 text-blue-600" />
-                          </div>
-                        ) : tx.callType === 'video' ? (
+                        {tx.callType === 'video' ? (
                           <VideoCameraIcon className="w-4 h-4 text-blue-600" />
                         ) : (
                           <PhoneIcon className="w-4 h-4 text-green-600" />
@@ -341,7 +509,7 @@ export default function Calls() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <h3 className="font-semibold text-gray-900 truncate">
-                          {tx.otherParty.name}
+                          {tx.otherParty?.name || 'Unknown'}
                         </h3>
                         <span className="text-xs text-gray-500 ml-2">
                           {formatDate(tx.createdAt)}
@@ -427,27 +595,29 @@ export default function Calls() {
                 <div>
                   <label className="text-sm text-gray-500">Other Party</label>
                   <div className="flex items-center space-x-3 mt-1">
-                    {selectedTransaction.otherParty.avatar ? (
+                    {selectedTransaction.otherParty?.avatar ? (
                       <img
                         src={selectedTransaction.otherParty.avatar}
-                        alt={selectedTransaction.otherParty.name}
+                        alt={selectedTransaction.otherParty?.name || 'User'}
                         className="w-10 h-10 rounded-full object-cover"
                       />
                     ) : (
                       <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
                         <span className="text-gray-500 font-semibold">
-                          {selectedTransaction.otherParty.name.charAt(0).toUpperCase()}
+                          {(selectedTransaction.otherParty?.name || 'U').charAt(0).toUpperCase()}
                         </span>
                       </div>
                     )}
                     <div>
-                      <p className="font-semibold">{selectedTransaction.otherParty.name}</p>
-                      <button
-                        onClick={() => handleViewProfile(selectedTransaction.otherParty.id)}
-                        className="text-sm text-velora-primary hover:underline"
-                      >
-                        View Profile
-                      </button>
+                      <p className="font-semibold">{selectedTransaction.otherParty?.name || 'Unknown'}</p>
+                      {selectedTransaction.otherParty?.id && (
+                        <button
+                          onClick={() => handleViewProfile(selectedTransaction.otherParty.id)}
+                          className="text-sm text-velora-primary hover:underline"
+                        >
+                          View Profile
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -4,6 +4,7 @@ import { Bars3Icon, ArrowLeftIcon, BellIcon, SparklesIcon } from '@heroicons/rea
 import { useAuth } from '../../contexts/AuthContext';
 import NotificationBell from './NotificationBell';
 import OnlineStatusToggle from './OnlineStatusToggle';
+import { NotificationPanel } from '../notificationPanel';
 
 // Create the NavBar Context
 const NavBarContext = createContext(null);
@@ -94,6 +95,8 @@ function GlobalNavBar() {
   const {
     showLeftSidebar,
     setShowLeftSidebar,
+    showNotificationPanel,
+    setShowNotificationPanel,
     profileTitle,
     profileShowBack,
     setProfileShowBack,
@@ -167,8 +170,14 @@ function GlobalNavBar() {
   // Don't show navbar on auth pages, admin pages, or complete-profile page
   const isAuthRoute = ['/login', '/signup'].includes(path);
   const isAdminRoute = path.startsWith('/admin') && path !== '/admin/login';
-  const isStaticPage = ['/privacy-policy', '/terms-conditions', '/contact-us', '/safety-policy', '/refund-policy'].includes(path);
+  const isMarketingPage = path === '/' && !user; // Marketing home page for unauthenticated users
+  const isStaticPage = ['/privacy-policy', '/terms-conditions', '/contact-us', '/contact', '/about', '/safety-policy', '/refund-policy'].includes(path);
   const isCompleteProfile = path === '/complete-profile';
+
+  // Hide navbar completely on marketing page (it has its own header)
+  if (isMarketingPage) {
+    return null;
+  }
 
   // Show navbar on static pages with back button and hamburger
   if (isStaticPage) {
@@ -191,22 +200,27 @@ function GlobalNavBar() {
               >
                 <ArrowLeftIcon className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700" />
               </button>
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setShowLeftSidebar(prev => !prev);
-                }}
-                className="p-2 hover:bg-amber-100 rounded-lg transition-colors"
-                aria-label="Toggle menu"
-                aria-expanded={showLeftSidebar}
-              >
-                <Bars3Icon className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700" />
-              </button>
+              {/* Only show hamburger if user is authenticated */}
+              {user && (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowLeftSidebar(prev => !prev);
+                  }}
+                  className="p-2 hover:bg-amber-100 rounded-lg transition-colors"
+                  aria-label="Toggle menu"
+                  aria-expanded={showLeftSidebar}
+                >
+                  <Bars3Icon className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700" />
+                </button>
+              )}
               <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate">
                 {path === '/privacy-policy' && 'Privacy Policy'}
                 {path === '/terms-conditions' && 'Terms & Conditions'}
                 {path === '/contact-us' && 'Contact Us'}
+                {path === '/contact' && 'Contact Us'}
+                {path === '/about' && 'About Us'}
                 {path === '/safety-policy' && 'Safety Policy'}
                 {path === '/refund-policy' && 'Refund Policy'}
               </h1>
@@ -219,6 +233,12 @@ function GlobalNavBar() {
             </div>
           </div>
         </div>
+        
+        {/* Notification Panel - Rendered from top navbar */}
+        <NotificationPanel
+          isOpen={showNotificationPanel}
+          onClose={() => setShowNotificationPanel(false)}
+        />
       </nav>
     );
   }
@@ -268,19 +288,21 @@ function GlobalNavBar() {
                 <ArrowLeftIcon className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700" />
               </button>
             ) : (
-              // Mobile: Show menu button when back button is not shown
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setShowLeftSidebar(prev => !prev);
-                }}
-                className="lg:hidden p-2 hover:bg-amber-100 rounded-lg transition-colors"
-                aria-label="Toggle menu"
-                aria-expanded={showLeftSidebar}
-              >
-                <Bars3Icon className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700" />
-              </button>
+              // Mobile: Show menu button when back button is not shown (only if authenticated)
+              user && (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowLeftSidebar(prev => !prev);
+                  }}
+                  className="lg:hidden p-2 hover:bg-amber-100 rounded-lg transition-colors"
+                  aria-label="Toggle menu"
+                  aria-expanded={showLeftSidebar}
+                >
+                  <Bars3Icon className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700" />
+                </button>
+              )
             )}
 
             {/* Desktop: Show back button if explicitly set, otherwise show menu */}
@@ -299,18 +321,21 @@ function GlobalNavBar() {
                 <ArrowLeftIcon className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700" />
               </button>
             ) : (
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setShowLeftSidebar(prev => !prev);
-                }}
-                className="hidden lg:flex p-2 hover:bg-amber-100 rounded-lg transition-colors"
-                aria-label="Toggle menu"
-                aria-expanded={showLeftSidebar}
-              >
-                <Bars3Icon className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700" />
-              </button>
+              // Desktop: Show menu button (only if authenticated)
+              user && (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowLeftSidebar(prev => !prev);
+                  }}
+                  className="hidden lg:flex p-2 hover:bg-amber-100 rounded-lg transition-colors"
+                  aria-label="Toggle menu"
+                  aria-expanded={showLeftSidebar}
+                >
+                  <Bars3Icon className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700" />
+                </button>
+              )
             )}
             {homeLeftAction ? (
               homeLeftAction
@@ -334,6 +359,12 @@ function GlobalNavBar() {
           </div>
         </div>
       </div>
+      
+      {/* Notification Panel - Rendered from top navbar */}
+      <NotificationPanel
+        isOpen={showNotificationPanel}
+        onClose={() => setShowNotificationPanel(false)}
+      />
     </nav>
   );
 }

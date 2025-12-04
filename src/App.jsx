@@ -2,7 +2,7 @@ import { useEffect, useMemo, lazy, Suspense, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Toaster } from 'react-hot-toast';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CallProvider } from './contexts/CallContext';
 import { GroupsProvider } from './contexts/GroupsContext';
 import FCMNotificationProvider from './components/common/FCMNotificationProvider';
@@ -18,6 +18,7 @@ import ProfileLeftSidebar from './components/sidebar/ProfileLeftSidebar';
 import { initNavbarHeight } from './utils/navbarHeight';
 
 // Lazy load heavy components to prevent crashes and improve performance
+const MarketingHome = lazy(() => import('./pages/MarketingHome'));
 const Login = lazy(() => import('./pages/Login'));
 const Signup = lazy(() => import('./pages/Signup'));
 const Home = lazy(() => import('./pages/Home'));
@@ -71,7 +72,9 @@ const PrivacySettings = lazy(() => import('./pages/PrivacySettings'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const TermsAndConditions = lazy(() => import('./pages/TermsAndConditions'));
 const ContactUs = lazy(() => import('./pages/ContactUs'));
+const Contact = lazy(() => import('./pages/Contact'));
 const RefundPolicy = lazy(() => import('./pages/RefundPolicy'));
+const About = lazy(() => import('./pages/About'));
 const SafetyPolicy = lazy(() => import('./pages/SafetyPolicy'));
 const ProgressPage = lazy(() => import('./pages/ProgressPage'));
 const Leadership = lazy(() => import('./pages/Leadership'));
@@ -144,6 +147,7 @@ function GlobalSidebar() {
     location.pathname === '/contact-us' ||
     location.pathname === '/safety-policy';
   const isAdminRoute = location.pathname.startsWith('/admin') && location.pathname !== '/admin/login';
+  const isCompleteProfile = location.pathname === '/complete-profile';
 
   // Close sidebar when route changes (only if context is available and route actually changed)
   const prevPathnameRef = useRef(location.pathname);
@@ -162,9 +166,9 @@ function GlobalSidebar() {
     return null;
   }
 
-  // Exclude home page (has its own sidebar), auth and admin routes
+  // Exclude home page (has its own sidebar), auth and admin routes, and complete profile page
   // Sidebar should be available on all other pages
-  if (isHomePage || isAuthRoute || isAdminRoute) {
+  if (isHomePage || isAuthRoute || isAdminRoute || isCompleteProfile) {
     return null;
   }
 
@@ -212,6 +216,59 @@ function ScrollToTop() {
   }, [pathname]);
 
   return null;
+}
+
+// Conditional Home Route - Shows MarketingHome for unauthenticated, Home for authenticated
+function ConditionalHomeRoute() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return <PageLoader />;
+  }
+
+  if (!user) {
+    // Show marketing home for unauthenticated users
+    return (
+      <motion.div
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        variants={pageVariants}
+        transition={pageTransition}
+      >
+        <Suspense fallback={<PageLoader />}>
+          <MarketingHome />
+        </Suspense>
+      </motion.div>
+    );
+  }
+
+  // Show app home for authenticated users
+  return (
+    <ProtectedRoute>
+      <PageWrapper>
+        <motion.div
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          variants={pageVariants}
+          transition={pageTransition}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            flex: '1 1 auto',
+            minHeight: 0,
+            width: '100%',
+            height: '100%',
+          }}
+        >
+          <Suspense fallback={<PageLoader />}>
+            <Home />
+          </Suspense>
+        </motion.div>
+      </PageWrapper>
+    </ProtectedRoute>
+  );
 }
 
 function AnimatedRoutes() {
@@ -313,6 +370,19 @@ function AnimatedRoutes() {
             <ContactUs />
           </motion.div>
         } />
+        <Route path="/contact" element={
+          <motion.div
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            variants={pageVariants}
+            transition={pageTransition}
+          >
+            <Suspense fallback={<PageLoader />}>
+              <Contact />
+            </Suspense>
+          </motion.div>
+        } />
         <Route path="/refund-policy" element={
           <motion.div
             initial="initial"
@@ -321,7 +391,22 @@ function AnimatedRoutes() {
             variants={pageVariants}
             transition={pageTransition}
           >
-            <RefundPolicy />
+            <Suspense fallback={<PageLoader />}>
+              <RefundPolicy />
+            </Suspense>
+          </motion.div>
+        } />
+        <Route path="/about" element={
+          <motion.div
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            variants={pageVariants}
+            transition={pageTransition}
+          >
+            <Suspense fallback={<PageLoader />}>
+              <About />
+            </Suspense>
           </motion.div>
         } />
         <Route path="/safety/trusted-contacts" element={
@@ -376,29 +461,7 @@ function AnimatedRoutes() {
         } />
         <Route
           path="/"
-          element={
-            <ProtectedRoute>
-              <PageWrapper>
-                <motion.div
-                  initial="initial"
-                  animate="animate"
-                  exit="exit"
-                  variants={pageVariants}
-                  transition={pageTransition}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    flex: '1 1 auto',
-                    minHeight: 0,
-                    width: '100%',
-                    height: '100%',
-                  }}
-                >
-                  <Home />
-                </motion.div>
-              </PageWrapper>
-            </ProtectedRoute>
-          }
+          element={<ConditionalHomeRoute />}
         />
         <Route
           path="/matches"
@@ -1176,13 +1239,15 @@ function AnimatedRoutes() {
 
 function MainLayoutContainer() {
   const location = useLocation();
+  const { user } = useAuth();
 
   // Check if navbar should be shown (same logic as GlobalNavBar)
   const isAuthRoute = ['/login', '/signup'].includes(location.pathname);
   const isAdminRoute = location.pathname.startsWith('/admin') && location.pathname !== '/admin/login';
-  const isStaticPage = ['/privacy-policy', '/terms-conditions', '/contact-us', '/safety-policy', '/refund-policy'].includes(location.pathname);
+  const isMarketingPage = location.pathname === '/' && !user; // Marketing home page for unauthenticated users
+  const isStaticPage = ['/privacy-policy', '/terms-conditions', '/contact-us', '/contact', '/about', '/safety-policy', '/refund-policy'].includes(location.pathname);
   const isCompleteProfile = location.pathname === '/complete-profile';
-  const shouldShowNavbar = !isAuthRoute && !isAdminRoute && !isStaticPage && !isCompleteProfile;
+  const shouldShowNavbar = !isAuthRoute && !isAdminRoute && !isStaticPage && !isCompleteProfile && !isMarketingPage;
 
   return (
     <div
@@ -1218,6 +1283,7 @@ function MainLayoutContainer() {
 
 function ConditionalBottomNav() {
   const location = useLocation();
+  const { user } = useAuth();
   const isAdminRoute = useMemo(() => {
     return location.pathname.startsWith('/admin');
   }, [location.pathname]);
@@ -1228,10 +1294,12 @@ function ConditionalBottomNav() {
       location.pathname.startsWith('/admin/login');
   }, [location.pathname]);
 
+  const isMarketingPage = location.pathname === '/' && !user;
+  const isStaticPage = ['/privacy-policy', '/terms-conditions', '/contact-us', '/contact', '/about', '/safety-policy', '/refund-policy'].includes(location.pathname);
   const isCompleteProfile = location.pathname === '/complete-profile';
 
-  // Don't render BottomNav on admin routes, auth pages, or complete-profile page
-  if (isAdminRoute || isAuthRoute || isCompleteProfile) {
+  // Don't render BottomNav on admin routes, auth pages, marketing pages, static pages, or complete-profile page
+  if (isAdminRoute || isAuthRoute || isCompleteProfile || isMarketingPage || isStaticPage) {
     return null;
   }
 
@@ -1251,12 +1319,7 @@ function MainContentWrapper({ children }) {
   const isAuthRoute = useMemo(() => {
     return location.pathname === '/login' ||
       location.pathname === '/signup' ||
-      location.pathname.startsWith('/admin/login') ||
-      location.pathname === '/privacy-policy' ||
-      location.pathname === '/terms-conditions' ||
-      location.pathname === '/contact-us' ||
-      location.pathname === '/safety-policy' ||
-      location.pathname === '/refund-policy';
+      location.pathname.startsWith('/admin/login');
   }, [location.pathname]);
 
   const isCompleteProfile = location.pathname === '/complete-profile';
@@ -1264,13 +1327,15 @@ function MainContentWrapper({ children }) {
   // Pages that should have left padding for sidebar on desktop
   // Sidebar is shown on all pages except home, auth, and admin (see GlobalSidebar)
   // On desktop, sidebar is always visible when shouldShowSidebar is true
+  const { user } = useAuth();
   const isHomePage = location.pathname === '/';
-  const shouldShowSidebar = !isHomePage && !isAuthRoute && !isAdminRoute && !isCompleteProfile;
+  const isMarketingPage = location.pathname === '/' && !user;
+  const shouldShowSidebar = !isHomePage && !isAuthRoute && !isAdminRoute && !isCompleteProfile && !isMarketingPage;
   const showLeftSidebar = navBarContext?.showLeftSidebar ?? false;
   // On desktop, sidebar is always visible, so we need padding when shouldShowSidebar is true
   // On mobile, sidebar is only visible when showLeftSidebar is true
 
-  const shouldShowBottomNav = !isAdminRoute && !isAuthRoute && !isCompleteProfile;
+  const shouldShowBottomNav = !isAdminRoute && !isAuthRoute && !isCompleteProfile && !isMarketingPage;
 
   return (
     <div
