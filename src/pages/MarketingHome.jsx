@@ -238,7 +238,7 @@ export default function MarketingHome() {
       </motion.header>
 
       {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center overflow-hidden pt-56 sm:pt-96 md:pt-[520px] lg:pt-32 pb-16 sm:pb-20 md:pb-24 lg:pb-28">
+      <section className="relative min-h-screen flex items-center overflow-hidden pt-72 sm:pt-[750px] md:pt-[520px] lg:pt-32 pb-16 sm:pb-20 md:pb-24 lg:pb-28">
         {/* Beautiful Background with Gradient */}
         <div className="absolute inset-0 z-0">
           <img 
@@ -320,7 +320,7 @@ export default function MarketingHome() {
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8, delay: 0.3 }}
-              className="relative mt-8 sm:mt-12 lg:mt-0"
+              className="relative  mt-8 sm:mt-12 lg:mt-0"
             >
               <motion.div
                 animate={{ 
