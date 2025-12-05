@@ -10,8 +10,9 @@ import { matchService } from '../../services/matchService';
 import { profileService } from '../../services/profileService';
 import PhotoCarousel from '../swipe/PhotoCarousel';
 import PremiumBadge from '../common/PremiumBadge';
+import OnlineBadge from '../common/OnlineBadge';
 
-export default function ProfileGridCard({ profile, currentUserLocation, onAction, index }) {
+export default function ProfileGridCard({ profile, currentUserLocation, onAction, index, isOnline = false }) {
   const { user } = useAuth();
   const { isPremium, hasSufficientCoins, ACTION_COSTS } = usePaymentGate();
   const navigate = useNavigate();
@@ -231,6 +232,9 @@ export default function ProfileGridCard({ profile, currentUserLocation, onAction
           placement="top-right"
           size="sm"
         />
+
+        {/* Online Badge - Top Right (above premium badge) */}
+        <OnlineBadge isOnline={isOnline} size="md" className="top-2 right-2" />
 
         {/* Stunning Yellow Gradient Overlay - GoMeet Style */}
         <div className="absolute inset-x-0 bottom-0 h-32 z-10">

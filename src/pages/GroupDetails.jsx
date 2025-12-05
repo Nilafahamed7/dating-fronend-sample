@@ -26,12 +26,15 @@ export default function GroupDetails() {
     typing,
     sendTypingIndicator,
     loadGroups,
+    addMessageOptimistically,
+    removeOptimisticMessage,
   } = useGroups();
   const [group, setGroup] = useState(null);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [isMember, setIsMember] = useState(false);
   const [isCreator, setIsCreator] = useState(false);
+  const [messagesLoaded, setMessagesLoaded] = useState(false);
 
   // Check if user can create/join groups
   const canCreateOrJoin = currentUser?.gender === 'female' || (currentUser?.gender === 'male' && currentUser?.isPremium === true);
@@ -61,18 +64,36 @@ export default function GroupDetails() {
   // Debug logging - more detailed
   useEffect(() => {
     if (normalizedGroupId) {
-      // Debug logging can be added here if needed
+      console.debug('GroupDetails Debug:', {
+        groupId: normalizedGroupId,
+        isMember,
+        loading,
+        messagesCount: messages.length,
+        groupExists: !!group,
+        groupInContext: groups.some(g => {
+          const gId = g._id?.toString() || g.id?.toString() || g.groupId?.toString();
+          return gId === normalizedGroupId;
+        }),
+      });
     }
-  }, [normalizedGroupId, groupMessages, messages, isMember, loading, group, canCreateOrJoin]);
+  }, [normalizedGroupId, groupMessages, messages, isMember, loading, group, canCreateOrJoin, groups]);
 
   // Sync group from context or load if not available
   useEffect(() => {
+    if (!groupId) {
+      console.debug('No groupId provided');
+      return;
+    }
+
+    console.debug('Checking for group in context...', { groupId, groupsCount: groups.length });
+
     const contextGroup = groups.find(g => {
       const gId = g._id?.toString() || g.id?.toString() || g.groupId?.toString();
       return gId === groupId?.toString();
     });
 
     if (contextGroup) {
+      console.debug('Group found in context, setting up...', contextGroup);
       setGroup(contextGroup);
       // If group is in joinedGroups context, user is definitely a member
       setIsMember(true); // Groups in context are joined groups
@@ -81,19 +102,28 @@ export default function GroupDetails() {
       setLoading(false);
       // Load messages and subscribe since user is a member
       if (normalizedGroupId) {
+        // Subscribe to real-time updates first
+        console.debug('Subscribing to group:', normalizedGroupId);
         subscribeToGroup(normalizedGroupId);
         // Load messages immediately with retry logic
         const loadMessagesWithRetry = async (retries = 3) => {
           try {
+            console.debug('Loading messages for group:', normalizedGroupId);
             const loadedMessages = await loadGroupMessages(normalizedGroupId, 50);
+            console.debug('Messages loaded:', loadedMessages?.length || 0);
+            setMessagesLoaded(true);
             if (loadedMessages && loadedMessages.length > 0) {
               // Messages loaded successfully
             }
             setTimeout(() => scrollToBottom(), 300);
           } catch (error) {
+            console.error('Error loading messages:', error);
             // Error loading messages - retry if attempts remaining
             if (retries > 0) {
+              console.debug(`Retrying message load, ${retries} attempts remaining`);
               setTimeout(() => loadMessagesWithRetry(retries - 1), 1000);
+            } else {
+              toast.error('Failed to load messages. Please refresh.');
             }
           }
         };
@@ -102,6 +132,7 @@ export default function GroupDetails() {
       }
     } else {
       // Not in context - need to check server for membership
+      console.debug('Group not in context, loading from server...');
       loadGroupDetails();
     }
   }, [groupId, groups, currentUser?._id, normalizedGroupId, subscribeToGroup, loadGroupMessages]);
@@ -169,9 +200,17 @@ export default function GroupDetails() {
 
   const loadGroupDetails = async () => {
     try {
+      console.debug('Loading group details from server...', groupId);
       setLoading(true);
       const response = await groupService.getGroupDetails(groupId);
+      console.debug('Group details response:', response);
       const groupData = response.group || response.data;
+      if (!groupData) {
+        console.error('No group data in response');
+        toast.error('Group not found');
+        navigate('/groups');
+        return;
+      }
       setGroup(groupData);
 
       // Check membership: server returns isMember field, or check if group is in joinedGroups
@@ -181,6 +220,12 @@ export default function GroupDetails() {
             const gId = g._id?.toString() || g.id?.toString() || g.groupId?.toString();
             return gId === groupId?.toString();
           });
+      
+      console.debug('Member status:', memberStatus, { isMember: groupData.isMember, inGroups: groups.some(g => {
+        const gId = g._id?.toString() || g.id?.toString() || g.groupId?.toString();
+        return gId === groupId?.toString();
+      })});
+      
       setIsMember(memberStatus);
 
       // Check if current user is the creator
@@ -193,24 +238,39 @@ export default function GroupDetails() {
       // Only load messages and members if user is a member
       if (memberStatus) {
         setIsMember(true);
+        const targetGroupId = normalizedGroupId || groupId;
+        console.debug('User is member, subscribing and loading messages for:', targetGroupId);
         // Subscribe first, then load messages
-        subscribeToGroup(groupId);
-        // Load messages immediately
-        loadGroupMessages(groupId, 50).then((loadedMessages) => {
+        subscribeToGroup(targetGroupId);
+        // Load messages immediately with error handling
+        try {
+          const loadedMessages = await loadGroupMessages(targetGroupId, 50);
+          console.debug('Messages loaded in loadGroupDetails:', loadedMessages?.length || 0);
+          setMessagesLoaded(true);
           if (loadedMessages && loadedMessages.length > 0) {
-            }
+            // Messages loaded successfully
+          }
           loadGroupMembers();
           // Scroll to bottom after messages load
           setTimeout(() => scrollToBottom(), 300);
-        }).catch((msgError) => {
-          });
+        } catch (msgError) {
+          console.error('Error loading messages in loadGroupDetails:', msgError);
+          toast.error('Failed to load messages. Please try again.');
+        }
       } else {
+        console.debug('User is not a member');
         setIsMember(false);
       }
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to load group details');
+      console.error('Error loading group details:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to load group details';
+      toast.error(errorMessage);
+      if (error.response?.status === 404) {
+        navigate('/groups');
+      }
     } finally {
       setLoading(false);
+      console.debug('Loading complete, isMember:', isMember);
     }
   };
 
@@ -369,76 +429,103 @@ export default function GroupDetails() {
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim() || sending || !normalizedGroupId || !isMember) {
-      if (!isMember) {
-        toast.error('You must be a member to send messages');
-      }
+    
+    // Validate inputs
+    if (!newMessage.trim()) {
+      return; // Empty message, do nothing
+    }
+    
+    if (sending) {
+      return; // Already sending, prevent duplicate sends
+    }
+    
+    if (!normalizedGroupId) {
+      toast.error('Group ID not found. Please refresh the page.');
+      return;
+    }
+    
+    if (!isMember) {
+      toast.error('You must be a member to send messages');
       return;
     }
 
     const messageText = newMessage.trim();
     setNewMessage(''); // Clear input immediately for better UX
 
+    // Create optimistic message
+    const optimisticMessage = {
+      _id: `temp-${Date.now()}-${Math.random()}`,
+      messageId: `temp-${Date.now()}-${Math.random()}`,
+      id: `temp-${Date.now()}-${Math.random()}`,
+      text: messageText,
+      message: messageText,
+      sender: { _id: currentUser._id, name: currentUser.name },
+      senderId: currentUser._id,
+      senderName: currentUser.name,
+      messageType: 'text',
+      isSystemMessage: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      _optimistic: true, // Mark as optimistic
+    };
+
+    // Add optimistic message to UI immediately via context
+    addMessageOptimistically(normalizedGroupId, optimisticMessage);
+    scrollToBottom();
+
     try {
       setSending(true);
       const response = await groupService.sendGroupMessage(normalizedGroupId, messageText);
-      if (response.success) {
-        // Add message optimistically to UI immediately
-        if (response.data) {
-          const newMessage = {
-            _id: response.data._id || response.data.messageId || response.data.id,
-            messageId: response.data._id || response.data.messageId || response.data.id,
-            id: response.data._id || response.data.messageId || response.data.id,
-            text: response.data.text || response.data.message || messageText,
-            message: response.data.message || response.data.text || messageText,
-            sender: response.data.sender || { _id: currentUser._id, name: currentUser.name },
-            senderId: response.data.senderId || currentUser._id,
-            senderName: response.data.sender?.name || currentUser.name,
-            messageType: response.data.messageType || 'text',
-            isSystemMessage: response.data.isSystemMessage || false,
-            createdAt: response.data.createdAt || new Date(),
-            updatedAt: response.data.updatedAt || new Date(),
-          };
+      
+      if (response.success && response.data) {
+        // Replace optimistic message with server response
+        const serverMessage = {
+          _id: response.data._id || response.data.messageId || response.data.id,
+          messageId: response.data._id || response.data.messageId || response.data.id,
+          id: response.data._id || response.data.messageId || response.data.id,
+          text: response.data.text || response.data.message || messageText,
+          message: response.data.message || response.data.text || messageText,
+          sender: response.data.sender || { _id: currentUser._id, name: currentUser.name },
+          senderId: response.data.senderId || currentUser._id,
+          senderName: response.data.sender?.name || currentUser.name,
+          messageType: response.data.messageType || 'text',
+          isSystemMessage: response.data.isSystemMessage || false,
+          createdAt: response.data.createdAt || new Date(),
+          updatedAt: response.data.updatedAt || new Date(),
+        };
 
-          // Update context immediately - FORCE update
-          setGroupMessages(prev => {
-            const existing = prev[normalizedGroupId] || [];
-            // Check if message already exists
-            const exists = existing.some(m => {
-              const mId = (m._id || m.messageId || m.id)?.toString();
-              const newId = (newMessage._id || newMessage.messageId || newMessage.id)?.toString();
-              return mId === newId;
-            });
-            if (exists) {
-              return prev;
-            }
-            const updated = {
-              ...prev,
-              [normalizedGroupId]: [...existing, newMessage],
-            };
-            return updated;
-          });
-
-          // Force a re-render by updating a state
-          setTimeout(() => {
-            scrollToBottom();
-          }, 50);
-        }
-
-        // Also reload messages to ensure we have the latest (real-time might be delayed)
-        setTimeout(async () => {
-          const loaded = await loadGroupMessages(normalizedGroupId, 50);
-          if (loaded && loaded.length > 0) {
-            } else {
-            }
-          scrollToBottom();
-        }, 500);
+        // Replace optimistic message with server message via context
+        // Remove optimistic first
+        removeOptimisticMessage(normalizedGroupId, optimisticMessage._id);
+        // Add server message (socket might have already added it, but this ensures it's there)
+        addMessageOptimistically(normalizedGroupId, serverMessage);
+        scrollToBottom();
       } else {
-        toast.error('Failed to send message');
+        // Remove optimistic message on failure
+        removeOptimisticMessage(normalizedGroupId, optimisticMessage._id);
+        toast.error(response.message || 'Failed to send message');
         setNewMessage(messageText); // Restore message on error
       }
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to send message');
+      console.error('Error sending message:', error);
+      // Remove optimistic message on error
+      removeOptimisticMessage(normalizedGroupId, optimisticMessage._id);
+      
+      const errorMessage = error.response?.data?.message || 'Failed to send message';
+      if (error.response?.status === 401) {
+        toast.error('Your session has expired. Please log in again.');
+        setTimeout(() => {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+        }, 1500);
+      } else if (error.response?.status === 403) {
+        toast.error('You do not have permission to send messages to this group.');
+      } else if (error.response?.status === 422) {
+        toast.error('Invalid message. Please check your input.');
+      } else {
+        toast.error(errorMessage);
+      }
       setNewMessage(messageText); // Restore message on error
     } finally {
       setSending(false);
@@ -902,14 +989,9 @@ export default function GroupDetails() {
                           <ChatBubbleLeftRightIcon className="w-16 h-16 text-gray-300 mb-4" />
                           <p className="text-gray-500 text-lg font-medium">No messages yet</p>
                           <p className="text-gray-400 text-sm mt-2">Start the conversation by sending a message below!</p>
-                          <p className="text-xs text-gray-400 mt-4">Debug: isMember={String(isMember)}, loading={String(loading)}, messages={messages.length}</p>
                         </div>
                       ) : (
                         <div className="space-y-6 w-full">
-                          {/* Debug banner */}
-                          <div className="bg-green-100 border border-green-300 rounded p-2 mb-2 text-xs">
-                            ✓ Rendering {messages.length} messages | isMember: {String(isMember)} | loading: {String(loading)}
-                          </div>
                           {messages.map((msg, idx) => {
                             const isSystemMessage = msg.isSystemMessage || msg.messageType === 'system';
                             const senderId = msg.sender?._id || msg.sender?.id || msg.senderId;
@@ -1015,7 +1097,8 @@ export default function GroupDetails() {
                       )}
                   </div>
 
-                  {isMember && !loading ? (
+                  {/* Message Composer - Only show for members */}
+                  {!loading && isMember ? (
                     <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200 bg-white flex-shrink-0 z-10">
                       <div className="flex gap-3">
                         <input
@@ -1024,8 +1107,9 @@ export default function GroupDetails() {
                           onChange={handleMessageChange}
                           placeholder="Type a message..."
                           disabled={sending || !normalizedGroupId}
-                          className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-velora-primary focus:border-transparent disabled:opacity-50 transition-all text-gray-900"
+                          className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-velora-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all text-gray-900"
                           autoFocus={false}
+                          aria-label="Type a message"
                         />
                         <motion.button
                           type="submit"
@@ -1033,30 +1117,13 @@ export default function GroupDetails() {
                           whileHover={!sending && newMessage.trim() && normalizedGroupId ? { scale: 1.05 } : {}}
                           whileTap={!sending && newMessage.trim() && normalizedGroupId ? { scale: 0.95 } : {}}
                           className="px-6 py-3 bg-gradient-to-r from-velora-primary to-purple-500 text-white rounded-xl hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed font-semibold shadow-md flex-shrink-0"
+                          aria-label="Send message"
                         >
                           {sending ? 'Sending...' : 'Send'}
                         </motion.button>
                       </div>
-                      {!normalizedGroupId && (
-                        <p className="text-xs text-red-500 mt-2">Error: Group ID not found</p>
-                      )}
-                      <div className="mt-2 flex gap-2 items-center">
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            const loaded = await loadGroupMessages(normalizedGroupId, 50);
-                            toast.info(`Loaded ${loaded?.length || 0} messages`);
-                          }}
-                          className="text-xs px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
-                        >
-                          Test: Reload Messages
-                        </button>
-                        <p className="text-xs text-gray-400">
-                          Debug: groupId={normalizedGroupId || 'none'}, isMember={String(isMember)}, messages={messages.length}
-                        </p>
-                      </div>
                     </form>
-                  ) : !isMember ? (
+                  ) : !loading && !isMember ? (
                     <div className="p-4 border-t border-gray-200 bg-gray-50 text-center text-gray-500 text-sm">
                       Join the group to send messages
                     </div>

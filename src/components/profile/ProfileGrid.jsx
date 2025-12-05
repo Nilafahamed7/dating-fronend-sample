@@ -2,7 +2,7 @@ import ProfileGridCard from './ProfileGridCard';
 import EmptyState from '../common/EmptyState';
 import { HeartIcon } from '@heroicons/react/24/outline';
 
-export default function ProfileGrid({ profiles, currentUserLocation, onAction, loading }) {
+export default function ProfileGrid({ profiles, currentUserLocation, onAction, loading, presenceMap = {} }) {
 
   if (loading) {
     return (
@@ -37,15 +37,20 @@ export default function ProfileGrid({ profiles, currentUserLocation, onAction, l
           maxWidth: '100%',
         }}
       >
-        {profiles.map((profile, index) => (
-          <ProfileGridCard
-            key={profile._id || profile.userId?._id || index}
-            profile={profile}
-            currentUserLocation={currentUserLocation}
-            onAction={onAction}
-            index={index}
-          />
-        ))}
+        {profiles.map((profile, index) => {
+          const userId = profile.userId?._id || profile.userId || profile._id;
+          const isOnline = presenceMap[userId] || false;
+          return (
+            <ProfileGridCard
+              key={profile._id || profile.userId?._id || index}
+              profile={profile}
+              currentUserLocation={currentUserLocation}
+              onAction={onAction}
+              index={index}
+              isOnline={isOnline}
+            />
+          );
+        })}
       </div>
     </div>
   );

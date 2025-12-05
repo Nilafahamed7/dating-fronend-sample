@@ -1,8 +1,14 @@
 import api from './api';
 
 export const matchService = {
-  getSuggestions: async () => {
-    const response = await api.get('/match/suggestions');
+  getSuggestions: async (params = {}) => {
+    const queryParams = new URLSearchParams();
+    if (params.online !== undefined) {
+      queryParams.append('online', params.online);
+    }
+    const queryString = queryParams.toString();
+    const url = `/match/suggestions${queryString ? `?${queryString}` : ''}`;
+    const response = await api.get(url);
     return response.data;
   },
 

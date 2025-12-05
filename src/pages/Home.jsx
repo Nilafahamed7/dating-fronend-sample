@@ -16,6 +16,8 @@ import ProfileLeftSidebar from '../components/sidebar/ProfileLeftSidebar';
 import { FunnelIcon, Squares2X2Icon, RectangleStackIcon, SparklesIcon, UserCircleIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { calculateAge, calculateDistance } from '../utils/helpers';
+import { getSocket, initializeSocket } from '../services/socketService';
+import { useSearchParams } from 'react-router-dom';
 
 export default function Home() {
   const { user, updateUser } = useAuth();
@@ -49,6 +51,15 @@ export default function Home() {
   const [isIncognito, setIsIncognito] = useState(false);
   const [showIncognitoConfirm, setShowIncognitoConfirm] = useState(false);
   const navBarContext = useNavBarContext();
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Online filter state - read from URL query param
+  const [onlineFilter, setOnlineFilter] = useState(() => {
+    return searchParams.get('online') === 'true';
+  });
+  
+  // Presence map: userId -> isOnline
+  const [presenceMap, setPresenceMap] = useState({});
 
   // Auto-set gender filter to opposite gender based on logged-in user
   const getOppositeGender = (userGender) => {
@@ -153,6 +164,45 @@ export default function Home() {
     }
   }, [showFilters, isIncognito]);
 
+  // Initialize socket and set up presence tracking
+  useEffect(() => {
+    if (!user?._id) return;
+
+    // Initialize socket if not already connected
+    const socket = initializeSocket(user._id);
+
+    // Listen for presence events
+    const handleUserOnline = (data) => {
+      if (data && data.userId) {
+        setPresenceMap(prev => ({
+          ...prev,
+          [data.userId]: true
+        }));
+      }
+    };
+
+    const handleUserOffline = (data) => {
+      if (data && data.userId) {
+        setPresenceMap(prev => ({
+          ...prev,
+          [data.userId]: false
+        }));
+      }
+    };
+
+    // Subscribe to presence events
+    socket.on('presence:user:online', handleUserOnline);
+    socket.on('presence:user:offline', handleUserOffline);
+
+    // Cleanup
+    return () => {
+      if (socket) {
+        socket.off('presence:user:online', handleUserOnline);
+        socket.off('presence:user:offline', handleUserOffline);
+      }
+    };
+  }, [user?._id]);
+
   useEffect(() => {
     if (user) {
       loadUserProfile();
@@ -223,7 +273,7 @@ export default function Home() {
   const loadSuggestions = async () => {
     try {
       setLoading(true);
-      const response = await matchService.getSuggestions();
+      const response = await matchService.getSuggestions({ online: onlineFilter || undefined });
       // Backend returns: { success: true, matches: [...] }
       // matchService already returns response.data, so response is { success: true, matches: [...] }
       let apiProfiles = [];
@@ -244,6 +294,21 @@ export default function Home() {
       // Don't apply filters here - let filteredProfiles useMemo handle it
       // This ensures all profiles are available and filters can be changed without reloading
       setProfiles(apiProfiles);
+      
+      // Update presence map from profiles if they have online status
+      if (apiProfiles && Array.isArray(apiProfiles)) {
+        const newPresenceMap = { ...presenceMap };
+        apiProfiles.forEach(profile => {
+          const userId = profile.userId?._id || profile.userId || profile._id;
+          if (userId) {
+            // If profile has isOnline field from server, use it
+            if (profile.isOnline !== undefined) {
+              newPresenceMap[userId] = profile.isOnline;
+            }
+          }
+        });
+        setPresenceMap(newPresenceMap);
+      }
     } catch (error) {
       // On error, show empty state
       setProfiles([]);
@@ -381,6 +446,15 @@ export default function Home() {
         }
       }
 
+      // Online filter - only show online users if filter is enabled
+      if (onlineFilter) {
+        const userId = profile.userId?._id || profile.userId || profile._id;
+        const isOnline = presenceMap[userId] || profile.isOnline || false;
+        if (!isOnline) {
+          return false;
+        }
+      }
+
       return true;
     });
   };
@@ -388,7 +462,21 @@ export default function Home() {
   // Apply search and filters to profiles
   const filteredProfiles = useMemo(() => {
     return applyFilters(profiles);
-  }, [profiles, searchQuery, filters, currentUserLocation]);
+  }, [profiles, searchQuery, filters, currentUserLocation, onlineFilter, presenceMap]);
+
+  // Handle online filter toggle - reload suggestions when filter changes
+  const handleOnlineFilterToggle = (newValue) => {
+    setOnlineFilter(newValue);
+    // Update URL query param
+    if (newValue) {
+      searchParams.set('online', 'true');
+    } else {
+      searchParams.delete('online');
+    }
+    setSearchParams(searchParams);
+    // Reload suggestions with new filter
+    loadSuggestions();
+  };
 
   const handleSwipe = async (profile, action) => {
     try {
@@ -816,6 +904,43 @@ export default function Home() {
             }}
           >
             <div className="relative flex items-center gap-3">
+              {/* Online Filter Toggle */}
+              <motion.div
+                className="flex items-center gap-2 bg-white rounded-full border-2 border-gray-300 overflow-hidden"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <button
+                  onClick={() => handleOnlineFilterToggle(false)}
+                  className={`px-4 py-2.5 text-sm font-semibold transition-all ${
+                    !onlineFilter
+                      ? 'bg-velora-primary text-velora-black'
+                      : 'bg-transparent text-gray-600 hover:bg-gray-50'
+                  }`}
+                  aria-label="Show all profiles"
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => handleOnlineFilterToggle(true)}
+                  className={`px-4 py-2.5 text-sm font-semibold transition-all relative ${
+                    onlineFilter
+                      ? 'bg-velora-primary text-velora-black'
+                      : 'bg-transparent text-gray-600 hover:bg-gray-50'
+                  }`}
+                  aria-label="Show only online profiles"
+                >
+                  Online
+                  {onlineFilter && (
+                    <motion.span
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="absolute -top-1 -right-1 w-2 h-2 bg-[#25D366] rounded-full border-2 border-white"
+                    />
+                  )}
+                </button>
+              </motion.div>
+              
               <motion.div
                 className="flex-1 relative"
                 whileFocus={{ scale: 1.02 }}
@@ -905,6 +1030,7 @@ export default function Home() {
               onAction={handleSwipe}
               currentUserLocation={currentUserLocation}
               loading={loading}
+              presenceMap={presenceMap}
             />
           ) : (
             <SwipeStack

@@ -81,17 +81,33 @@ export const GroupsProvider = ({ children }) => {
   // Subscribe to a group's real-time channels
   const subscribeToGroup = useCallback((groupId) => {
     const socket = getSocket();
-    if (!socket || !socket.connected || !groupId) return;
+    if (!socket || !groupId) {
+      console.debug('Cannot subscribe: socket or groupId missing', { socket: !!socket, groupId });
+      return;
+    }
 
-    if (subscriptionsRef.current.has(groupId)) {
+    // Wait for socket connection if not connected
+    if (!socket.connected) {
+      console.debug('Socket not connected, waiting for connection...');
+      const onConnect = () => {
+        socket.off('connect', onConnect);
+        subscribeToGroup(groupId); // Retry after connection
+      };
+      socket.on('connect', onConnect);
+      return;
+    }
+
+    const normalizedGroupId = groupId?.toString();
+    if (subscriptionsRef.current.has(normalizedGroupId)) {
+      console.debug('Already subscribed to group:', normalizedGroupId);
       return; // Already subscribed
     }
 
-    subscriptionsRef.current.add(groupId);
+    subscriptionsRef.current.add(normalizedGroupId);
+    console.debug('Subscribing to group:', normalizedGroupId);
 
     // Join group room (ensure string format for consistency)
-    const normalizedGroupIdForSocket = groupId?.toString();
-    socket.emit('join-group', normalizedGroupIdForSocket);
+    socket.emit('join-group', normalizedGroupId);
     // Set up listeners for this group
     const handleNewMessage = (data) => {
       const normalizedGroupId = groupId?.toString();
@@ -485,6 +501,42 @@ export const GroupsProvider = ({ children }) => {
     };
   }, [unsubscribeFromGroup]);
 
+  // Add message optimistically (for immediate UI feedback)
+  const addMessageOptimistically = useCallback((groupId, message) => {
+    const normalizedId = groupId?.toString();
+    if (!normalizedId || !message) return;
+
+    setGroupMessages(prev => {
+      const existing = prev[normalizedId] || [];
+      // Check if message already exists
+      const messageId = (message._id || message.messageId || message.id)?.toString();
+      if (messageId && existing.some(m => {
+        const mId = (m._id || m.messageId || m.id)?.toString();
+        return mId === messageId;
+      })) {
+        return prev; // Already exists
+      }
+      return {
+        ...prev,
+        [normalizedId]: [...existing, normalizeMessage(message)],
+      };
+    });
+  }, [normalizeMessage]);
+
+  // Remove optimistic message (on send failure)
+  const removeOptimisticMessage = useCallback((groupId, tempId) => {
+    const normalizedId = groupId?.toString();
+    if (!normalizedId) return;
+
+    setGroupMessages(prev => {
+      const existing = prev[normalizedId] || [];
+      return {
+        ...prev,
+        [normalizedId]: existing.filter(m => m._id !== tempId && m.messageId !== tempId && m.id !== tempId),
+      };
+    });
+  }, []);
+
   const value = {
     groups,
     groupMessages,
@@ -500,6 +552,8 @@ export const GroupsProvider = ({ children }) => {
     unsubscribeFromGroup,
     updatePresence,
     sendTypingIndicator,
+    addMessageOptimistically,
+    removeOptimisticMessage,
   };
 
   return <GroupsContext.Provider value={value}>{children}</GroupsContext.Provider>;
