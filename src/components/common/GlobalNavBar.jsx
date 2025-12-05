@@ -174,73 +174,9 @@ function GlobalNavBar() {
   const isStaticPage = ['/privacy-policy', '/terms-conditions', '/contact-us', '/contact', '/about', '/safety-policy', '/refund-policy'].includes(path);
   const isCompleteProfile = path === '/complete-profile';
 
-  // Hide navbar completely on marketing page (it has its own header)
-  if (isMarketingPage) {
+  // Hide navbar completely on marketing page and static pages (they have their own headers)
+  if (isMarketingPage || isStaticPage) {
     return null;
-  }
-
-  // Show navbar on static pages with back button and hamburger
-  if (isStaticPage) {
-    return (
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-amber-50 to-yellow-50 border-b border-amber-200 shadow-sm">
-        <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-14 sm:h-16">
-            {/* Left side - Back button and Hamburger */}
-            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-              <button
-                onClick={() => {
-                  if (window.history.length > 1) {
-                    navigate(-1);
-                  } else {
-                    navigate('/');
-                  }
-                }}
-                className="p-2 hover:bg-amber-100 rounded-lg transition-colors"
-                aria-label="Go back"
-              >
-                <ArrowLeftIcon className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700" />
-              </button>
-              {/* Only show hamburger if user is authenticated */}
-              {user && (
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setShowLeftSidebar(prev => !prev);
-                  }}
-                  className="p-2 hover:bg-amber-100 rounded-lg transition-colors"
-                  aria-label="Toggle menu"
-                  aria-expanded={showLeftSidebar}
-                >
-                  <Bars3Icon className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700" />
-                </button>
-              )}
-              <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate">
-                {path === '/privacy-policy' && 'Privacy Policy'}
-                {path === '/terms-conditions' && 'Terms & Conditions'}
-                {path === '/contact-us' && 'Contact Us'}
-                {path === '/contact' && 'Contact Us'}
-                {path === '/about' && 'About Us'}
-                {path === '/safety-policy' && 'Safety Policy'}
-                {path === '/refund-policy' && 'Refund Policy'}
-              </h1>
-            </div>
-
-            {/* Right side - Notifications and Online Status Toggle */}
-            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-              <NotificationBell />
-              <OnlineStatusToggle />
-            </div>
-          </div>
-        </div>
-        
-        {/* Notification Panel - Rendered from top navbar */}
-        <NotificationPanel
-          isOpen={showNotificationPanel}
-          onClose={() => setShowNotificationPanel(false)}
-        />
-      </nav>
-    );
   }
 
   if (isAuthRoute || isAdminRoute || isCompleteProfile) {

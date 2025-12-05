@@ -145,6 +145,9 @@ function GlobalSidebar() {
     location.pathname === '/privacy-policy' ||
     location.pathname === '/terms-conditions' ||
     location.pathname === '/contact-us' ||
+    location.pathname === '/contact' ||
+    location.pathname === '/about' ||
+    location.pathname === '/refund-policy' ||
     location.pathname === '/safety-policy';
   const isAdminRoute = location.pathname.startsWith('/admin') && location.pathname !== '/admin/login';
   const isCompleteProfile = location.pathname === '/complete-profile';
@@ -166,9 +169,17 @@ function GlobalSidebar() {
     return null;
   }
 
-  // Exclude home page (has its own sidebar), auth and admin routes, and complete profile page
+  // Exclude home page (has its own sidebar), auth and admin routes, static pages, and complete profile page
   // Sidebar should be available on all other pages
-  if (isHomePage || isAuthRoute || isAdminRoute || isCompleteProfile) {
+  const isStaticPage = location.pathname === '/privacy-policy' ||
+    location.pathname === '/terms-conditions' ||
+    location.pathname === '/contact-us' ||
+    location.pathname === '/contact' ||
+    location.pathname === '/about' ||
+    location.pathname === '/refund-policy' ||
+    location.pathname === '/safety-policy';
+  
+  if (isHomePage || isAuthRoute || isAdminRoute || isCompleteProfile || isStaticPage) {
     return null;
   }
 
