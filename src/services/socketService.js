@@ -36,14 +36,16 @@ export const initializeSocket = (userId) => {
     auth: {
       token,
     },
-    transports: ['websocket', 'polling'],
+    transports: ['polling', 'websocket'], // Prefer polling for Render compatibility
     autoConnect: true,
     reconnection: true,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
-    reconnectionAttempts: 5,
+    reconnectionAttempts: Infinity, // Keep trying to reconnect indefinitely
     timeout: 20000,
     forceNew: false,
+    upgrade: true, // Allow transport upgrades
+    rememberUpgrade: false, // Don't remember upgrade preference (always try polling first)
   });
 
   socket.on('connect', () => {
