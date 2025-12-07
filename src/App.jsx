@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { motion, AnimatePresence } from 'framer-motion';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { PresenceProvider } from './contexts/PresenceContext';
 import { CallProvider } from './contexts/CallContext';
 import { GroupsProvider } from './contexts/GroupsContext';
 import FCMNotificationProvider from './components/common/FCMNotificationProvider';
@@ -1384,9 +1385,10 @@ function App() {
 
   return (
     <AuthProvider>
-      <CallProvider>
-        <GroupsProvider>
-          <Router>
+      <PresenceProvider>
+        <CallProvider>
+          <GroupsProvider>
+            <Router>
             <FCMNotificationProvider>
             <DeepLinkHandler />
             <ScrollToTop />
@@ -1465,9 +1467,10 @@ function App() {
             }}
           />
             </FCMNotificationProvider>
-          </Router>
-        </GroupsProvider>
-      </CallProvider>
+            </Router>
+          </GroupsProvider>
+        </CallProvider>
+      </PresenceProvider>
     </AuthProvider>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { matchService } from '../services/matchService';
@@ -6,6 +6,7 @@ import { profileService } from '../services/profileService';
 import { publicService } from '../services/publicService';
 import { chatService } from '../services/chatService';
 import { useAuth } from '../contexts/AuthContext';
+import { usePresence } from '../contexts/PresenceContext';
 import { usePaymentGate } from '../hooks/usePaymentGate';
 import SwipeStack from '../components/swipe/SwipeStack';
 import ProfileGrid from '../components/profile/ProfileGrid';
@@ -16,11 +17,11 @@ import ProfileLeftSidebar from '../components/sidebar/ProfileLeftSidebar';
 import { FunnelIcon, Squares2X2Icon, RectangleStackIcon, SparklesIcon, UserCircleIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { calculateAge, calculateDistance } from '../utils/helpers';
-import { getSocket, initializeSocket } from '../services/socketService';
 import { useSearchParams } from 'react-router-dom';
 
 export default function Home() {
   const { user, updateUser } = useAuth();
+  const { presenceMap, isUserOnline, seedPresenceFromProfiles } = usePresence();
   const location = useLocation();
   const navigate = useNavigate();
   const { checkLike, checkSuperlike, refreshBalance, ACTION_COSTS } = usePaymentGate();
@@ -57,9 +58,6 @@ export default function Home() {
   const [onlineFilter, setOnlineFilter] = useState(() => {
     return searchParams.get('online') === 'true';
   });
-  
-  // Presence map: userId -> isOnline
-  const [presenceMap, setPresenceMap] = useState({});
 
   // Auto-set gender filter to opposite gender based on logged-in user
   const getOppositeGender = (userGender) => {
@@ -164,57 +162,7 @@ export default function Home() {
     }
   }, [showFilters, isIncognito]);
 
-  // Initialize socket and set up presence tracking
-  useEffect(() => {
-    if (!user?._id) return;
-
-    // Initialize socket if not already connected
-    const socket = initializeSocket(user._id);
-
-    // Listen for presence events
-    const handleUserOnline = (data) => {
-      if (data && data.userId) {
-        setPresenceMap(prev => ({
-          ...prev,
-          [data.userId]: true
-        }));
-      }
-    };
-
-    const handleUserOffline = (data) => {
-      if (data && data.userId) {
-        setPresenceMap(prev => ({
-          ...prev,
-          [data.userId]: false
-        }));
-      }
-    };
-
-    // Handle generic presence:update event (for compatibility)
-    const handlePresenceUpdate = (data) => {
-      if (data && data.userId) {
-        const isOnline = data.isOnline === true || data.onlineStatus === 'online';
-        setPresenceMap(prev => ({
-          ...prev,
-          [data.userId]: isOnline
-        }));
-      }
-    };
-
-    // Subscribe to presence events
-    socket.on('presence:user:online', handleUserOnline);
-    socket.on('presence:user:offline', handleUserOffline);
-    socket.on('presence:update', handlePresenceUpdate);
-
-    // Cleanup
-    return () => {
-      if (socket) {
-        socket.off('presence:user:online', handleUserOnline);
-        socket.off('presence:user:offline', handleUserOffline);
-        socket.off('presence:update', handlePresenceUpdate);
-      }
-    };
-  }, [user?._id]);
+  // Presence tracking is now handled by PresenceContext - no need for local socket setup here
 
   useEffect(() => {
     if (user) {
@@ -286,7 +234,9 @@ export default function Home() {
   const loadSuggestions = async () => {
     try {
       setLoading(true);
-      const response = await matchService.getSuggestions({ online: onlineFilter || undefined });
+      // Always fetch all profiles - we'll filter client-side for real-time updates
+      // This ensures we have all profiles available for real-time presence filtering
+      const response = await matchService.getSuggestions({});
       // Backend returns: { success: true, matches: [...] }
       // matchService already returns response.data, so response is { success: true, matches: [...] }
       let apiProfiles = [];
@@ -308,19 +258,9 @@ export default function Home() {
       // This ensures all profiles are available and filters can be changed without reloading
       setProfiles(apiProfiles);
       
-      // Update presence map from profiles if they have online status
+      // Seed presence map from initial profile data (presence context will handle real-time updates)
       if (apiProfiles && Array.isArray(apiProfiles)) {
-        const newPresenceMap = { ...presenceMap };
-        apiProfiles.forEach(profile => {
-          const userId = profile.userId?._id || profile.userId || profile._id;
-          if (userId) {
-            // If profile has isOnline field from server, use it
-            if (profile.isOnline !== undefined) {
-              newPresenceMap[userId] = profile.isOnline;
-            }
-          }
-        });
-        setPresenceMap(newPresenceMap);
+        seedPresenceFromProfiles(apiProfiles);
       }
     } catch (error) {
       // On error, show empty state
@@ -331,7 +271,7 @@ export default function Home() {
     }
   };
 
-  const applyFilters = (profileList) => {
+  const applyFilters = useCallback((profileList) => {
     if (!profileList || !Array.isArray(profileList)) {
       return [];
     }
@@ -460,9 +400,11 @@ export default function Home() {
       }
 
       // Online filter - only show online users if filter is enabled
+      // Use presence context as source of truth (real-time updates)
       if (onlineFilter) {
         const userId = profile.userId?._id || profile.userId || profile._id;
-        const isOnline = presenceMap[userId] || profile.isOnline || false;
+        // Check presence context first (real-time), fallback to profile data (initial load)
+        const isOnline = isUserOnline(userId) || profile.isOnline === true;
         if (!isOnline) {
           return false;
         }
@@ -470,14 +412,15 @@ export default function Home() {
 
       return true;
     });
-  };
+  }, [searchQuery, filters, currentUserLocation, onlineFilter, isUserOnline]);
 
   // Apply search and filters to profiles
+  // Include presenceMap in dependencies so it reacts to real-time presence changes
   const filteredProfiles = useMemo(() => {
     return applyFilters(profiles);
-  }, [profiles, searchQuery, filters, currentUserLocation, onlineFilter, presenceMap]);
+  }, [profiles, searchQuery, filters, currentUserLocation, onlineFilter, presenceMap, isUserOnline]);
 
-  // Handle online filter toggle - reload suggestions when filter changes
+  // Handle online filter toggle - use client-side filtering for real-time updates
   const handleOnlineFilterToggle = (newValue) => {
     setOnlineFilter(newValue);
     // Update URL query param
@@ -487,8 +430,13 @@ export default function Home() {
       searchParams.delete('online');
     }
     setSearchParams(searchParams);
-    // Reload suggestions with new filter
-    loadSuggestions();
+    
+    // For real-time updates, we use client-side filtering
+    // Only reload from server if we don't have profiles yet
+    if (profiles.length === 0) {
+      loadSuggestions();
+    }
+    // Otherwise, filteredProfiles useMemo will handle the filtering in real-time
   };
 
   const handleSwipe = async (profile, action) => {

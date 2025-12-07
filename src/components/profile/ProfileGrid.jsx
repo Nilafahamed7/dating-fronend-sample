@@ -1,8 +1,10 @@
 import ProfileGridCard from './ProfileGridCard';
 import EmptyState from '../common/EmptyState';
 import { HeartIcon } from '@heroicons/react/24/outline';
+import { usePresence } from '../../contexts/PresenceContext';
 
 export default function ProfileGrid({ profiles, currentUserLocation, onAction, loading, presenceMap = {}, onlineFilter = false }) {
+  const { isUserOnline } = usePresence();
 
   if (loading) {
     return (
@@ -50,7 +52,8 @@ export default function ProfileGrid({ profiles, currentUserLocation, onAction, l
       >
         {profiles.map((profile, index) => {
           const userId = profile.userId?._id || profile.userId || profile._id;
-          const isOnline = presenceMap[userId] || false;
+          // Use presence context as source of truth (real-time), fallback to profile data (initial load)
+          const isOnline = isUserOnline(userId) || profile.isOnline === true;
           return (
             <ProfileGridCard
               key={profile._id || profile.userId?._id || index}
