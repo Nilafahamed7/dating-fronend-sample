@@ -904,38 +904,41 @@ export default function Home() {
             }}
           >
             <div className="relative flex items-center gap-3">
-              {/* Online Filter Toggle */}
+              {/* Online Filter Toggle - Segmented Control */}
               <motion.div
-                className="flex items-center gap-2 bg-white rounded-full border-2 border-gray-300 overflow-hidden"
+                className="flex items-center bg-white rounded-full border-2 border-gray-300 overflow-hidden shadow-sm"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
                 <button
                   onClick={() => handleOnlineFilterToggle(false)}
-                  className={`px-4 py-2.5 text-sm font-semibold transition-all ${
+                  className={`px-4 py-2.5 text-sm font-semibold transition-all relative ${
                     !onlineFilter
                       ? 'bg-velora-primary text-velora-black'
                       : 'bg-transparent text-gray-600 hover:bg-gray-50'
                   }`}
                   aria-label="Show all profiles"
+                  aria-pressed={!onlineFilter}
                 >
                   All
                 </button>
+                <div className="w-px h-6 bg-gray-300" />
                 <button
                   onClick={() => handleOnlineFilterToggle(true)}
-                  className={`px-4 py-2.5 text-sm font-semibold transition-all relative ${
+                  className={`px-4 py-2.5 text-sm font-semibold transition-all relative flex items-center gap-1.5 ${
                     onlineFilter
                       ? 'bg-velora-primary text-velora-black'
                       : 'bg-transparent text-gray-600 hover:bg-gray-50'
                   }`}
                   aria-label="Show only online profiles"
+                  aria-pressed={onlineFilter}
                 >
-                  Online
+                  <span>Online</span>
                   {onlineFilter && (
                     <motion.span
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
-                      className="absolute -top-1 -right-1 w-2 h-2 bg-[#25D366] rounded-full border-2 border-white"
+                      className="w-2 h-2 bg-[#25D366] rounded-full"
                     />
                   )}
                 </button>
@@ -1031,6 +1034,7 @@ export default function Home() {
               currentUserLocation={currentUserLocation}
               loading={loading}
               presenceMap={presenceMap}
+              onlineFilter={onlineFilter}
             />
           ) : (
             <SwipeStack

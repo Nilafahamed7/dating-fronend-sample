@@ -47,6 +47,7 @@ export default function LoginForm() {
           className="input-field bg-gray-50 text-gray-900 placeholder-gray-400"
           placeholder="you@example.com or +1234567890"
         />
+        <p className="text-xs text-gray-500 mt-1">Login with your email address or phone number</p>
       </div>
 
       <div>

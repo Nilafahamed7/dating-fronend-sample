@@ -233,8 +233,8 @@ export default function ProfileGridCard({ profile, currentUserLocation, onAction
           size="sm"
         />
 
-        {/* Online Badge - Top Right (above premium badge) */}
-        <OnlineBadge isOnline={isOnline} size="md" className="top-2 right-2" />
+        {/* Online Badge - Top Left */}
+        <OnlineBadge isOnline={isOnline} size="md" placement="top-left" />
 
         {/* Stunning Yellow Gradient Overlay - GoMeet Style */}
         <div className="absolute inset-x-0 bottom-0 h-32 z-10">

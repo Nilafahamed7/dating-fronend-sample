@@ -2,7 +2,7 @@ import ProfileGridCard from './ProfileGridCard';
 import EmptyState from '../common/EmptyState';
 import { HeartIcon } from '@heroicons/react/24/outline';
 
-export default function ProfileGrid({ profiles, currentUserLocation, onAction, loading, presenceMap = {} }) {
+export default function ProfileGrid({ profiles, currentUserLocation, onAction, loading, presenceMap = {}, onlineFilter = false }) {
 
   if (loading) {
     return (
@@ -16,6 +16,17 @@ export default function ProfileGrid({ profiles, currentUserLocation, onAction, l
   }
 
   if (profiles.length === 0) {
+    // Show specific message for online filter
+    if (onlineFilter) {
+      return (
+        <EmptyState
+          icon={HeartIcon}
+          title="No one is online right now"
+          message="Try switching to 'All' profiles to see more people, or check back later!"
+        />
+      );
+    }
+    
     return (
       <EmptyState
         icon={HeartIcon}

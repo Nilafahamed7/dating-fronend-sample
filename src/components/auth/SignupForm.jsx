@@ -57,26 +57,23 @@ export default function SignupForm() {
       return;
     }
 
-    // Validate phone number (always required)
-    if (!formData.phone || formData.phone.trim() === '') {
-      toast.error('Phone number is required');
-      return;
-    }
+    // Phone is optional - validate format only if provided
+    if (formData.phone && formData.phone.trim() !== '') {
+      // Validate phone format if provided
+      const phoneValidation = validatePhoneNumber(formData.phone);
+      if (!phoneValidation.valid) {
+        toast.error(phoneValidation.error || 'Invalid phone number format');
+        return;
+      }
 
-    // Validate phone format
-    const phoneValidation = validatePhoneNumber(formData.phone);
-    if (!phoneValidation.valid) {
-      toast.error(phoneValidation.error || 'Invalid phone number format');
-      return;
-    }
-
-    // Normalize phone number
-    try {
-      const normalized = normalizePhoneNumber(formData.phone);
-      setFormData({ ...formData, phone: normalized });
-    } catch (error) {
-      toast.error(error.message || 'Invalid phone number format');
-      return;
+      // Normalize phone number
+      try {
+        const normalized = normalizePhoneNumber(formData.phone);
+        setFormData({ ...formData, phone: normalized });
+      } catch (error) {
+        toast.error(error.message || 'Invalid phone number format');
+        return;
+      }
     }
 
     setStep(2);
@@ -93,7 +90,10 @@ export default function SignupForm() {
       signupData.dateOfBirth = new Date(signupData.dateOfBirth).toISOString();
     }
 
-    // Phone is always required, keep it in signupData
+    // Remove phone from signupData if empty
+    if (!signupData.phone || signupData.phone.trim() === '') {
+      delete signupData.phone;
+    }
 
     const result = await signup(signupData);
 
@@ -126,7 +126,7 @@ export default function SignupForm() {
 
           <div>
             <label htmlFor="email" className="block text-[10px] sm:text-[11px] md:text-xs font-semibold text-gray-700 mb-0.5">
-              Email Address
+              Email Address <span className="text-red-500">*</span>
             </label>
             <input
               id="email"
@@ -138,11 +138,12 @@ export default function SignupForm() {
               className="input-field bg-gray-50 text-gray-900 placeholder-gray-400 py-2.5 sm:py-3 md:py-3 text-sm sm:text-base border border-gray-200 rounded-lg focus:border-velora-primary focus:ring-2 focus:ring-velora-primary/20 transition-all w-full"
               placeholder="john.doe@example.com"
             />
+            <p className="text-[8px] sm:text-[9px] md:text-[10px] text-gray-500 mt-0.5 leading-tight mb-0">You can login with email or phone number</p>
           </div>
 
           <div>
             <label htmlFor="phone" className="block text-[10px] sm:text-[11px] md:text-xs font-semibold text-gray-700 mb-0.5">
-              Phone Number <span className="text-red-500">*</span>
+              Phone Number <span className="text-gray-400 text-[8px]">(Optional)</span>
             </label>
             <input
               id="phone"
@@ -150,11 +151,10 @@ export default function SignupForm() {
               type="tel"
               value={formData.phone}
               onChange={handleChange}
-              required
               className="input-field bg-gray-50 text-gray-900 placeholder-gray-400 py-2.5 sm:py-3 md:py-3 text-sm sm:text-base border border-gray-200 rounded-lg focus:border-velora-primary focus:ring-2 focus:ring-velora-primary/20 transition-all w-full"
-              placeholder="+1234567890"
+              placeholder="+1234567890 (Optional)"
             />
-            <p className="text-[8px] sm:text-[9px] md:text-[10px] text-gray-500 mt-0.5 leading-tight mb-0">Include country code (e.g., +1 for US, +44 for UK)</p>
+            <p className="text-[8px] sm:text-[9px] md:text-[10px] text-gray-500 mt-0.5 leading-tight mb-0">Include country code (e.g., +1 for US, +44 for UK). You can add this later.</p>
           </div>
 
           <div>
