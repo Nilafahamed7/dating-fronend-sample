@@ -190,15 +190,28 @@ export default function Home() {
       }
     };
 
+    // Handle generic presence:update event (for compatibility)
+    const handlePresenceUpdate = (data) => {
+      if (data && data.userId) {
+        const isOnline = data.isOnline === true || data.onlineStatus === 'online';
+        setPresenceMap(prev => ({
+          ...prev,
+          [data.userId]: isOnline
+        }));
+      }
+    };
+
     // Subscribe to presence events
     socket.on('presence:user:online', handleUserOnline);
     socket.on('presence:user:offline', handleUserOffline);
+    socket.on('presence:update', handlePresenceUpdate);
 
     // Cleanup
     return () => {
       if (socket) {
         socket.off('presence:user:online', handleUserOnline);
         socket.off('presence:user:offline', handleUserOffline);
+        socket.off('presence:update', handlePresenceUpdate);
       }
     };
   }, [user?._id]);
