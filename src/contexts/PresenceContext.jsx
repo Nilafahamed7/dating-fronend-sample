@@ -98,25 +98,37 @@ export const PresenceProvider = ({ children }) => {
   }, [user?._id, updatePresence]);
 
   // Seed presence map from initial profile data (when profiles are loaded)
+  // Only seeds if not already in map to preserve real-time updates
+  // Real-time socket events will always take precedence over seeded data
   const seedPresenceFromProfiles = useCallback((profiles) => {
     if (!profiles || !Array.isArray(profiles)) return;
     
-    const newPresenceMap = { ...presenceMap };
-    profiles.forEach(profile => {
-      const userId = profile.userId?._id || profile.userId || profile._id;
-      if (userId) {
-        const userIdStr = userId.toString();
-        // Only seed if not already in map (preserve real-time updates)
-        if (!newPresenceMap[userIdStr] && profile.isOnline !== undefined) {
-          newPresenceMap[userIdStr] = {
-            isOnline: profile.isOnline === true,
-            updatedAt: new Date(),
-          };
+    setPresenceMap(prev => {
+      const newPresenceMap = { ...prev };
+      let hasChanges = false;
+      
+      profiles.forEach(profile => {
+        const userId = profile.userId?._id || profile.userId || profile._id;
+        if (userId) {
+          const userIdStr = userId.toString();
+          // Only seed if not already in map (preserve real-time updates)
+          // This ensures real-time updates take precedence over initial data
+          // If user is already in map from real-time events, don't overwrite
+          if (!newPresenceMap[userIdStr] && profile.isOnline !== undefined) {
+            // Only seed if profile explicitly has isOnline field
+            // Backend now correctly returns isOnline: false for offline users
+            newPresenceMap[userIdStr] = {
+              isOnline: profile.isOnline === true, // Only true if explicitly true
+              updatedAt: new Date(),
+            };
+            hasChanges = true;
+          }
         }
-      }
+      });
+      
+      return hasChanges ? newPresenceMap : prev;
     });
-    setPresenceMap(newPresenceMap);
-  }, [presenceMap]);
+  }, []);
 
   const value = {
     presenceMap,

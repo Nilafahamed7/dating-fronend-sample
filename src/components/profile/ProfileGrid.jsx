@@ -3,8 +3,11 @@ import EmptyState from '../common/EmptyState';
 import { HeartIcon } from '@heroicons/react/24/outline';
 import { usePresence } from '../../contexts/PresenceContext';
 
-export default function ProfileGrid({ profiles, currentUserLocation, onAction, loading, presenceMap = {}, onlineFilter = false }) {
-  const { isUserOnline } = usePresence();
+export default function ProfileGrid({ profiles, currentUserLocation, onAction, loading, presenceMap: propPresenceMap = {}, onlineFilter = false }) {
+  const { isUserOnline, presenceMap: contextPresenceMap } = usePresence();
+  
+  // Use context presence map (authoritative) - it's always up-to-date with real-time events
+  const presenceMap = contextPresenceMap || propPresenceMap;
 
   if (loading) {
     return (
@@ -52,8 +55,13 @@ export default function ProfileGrid({ profiles, currentUserLocation, onAction, l
       >
         {profiles.map((profile, index) => {
           const userId = profile.userId?._id || profile.userId || profile._id;
-          // Use presence context as source of truth (real-time), fallback to profile data (initial load)
-          const isOnline = isUserOnline(userId) || profile.isOnline === true;
+          // Presence context is AUTHORITATIVE - if user is marked offline in context, they're offline
+          // Only check profile data if not in presence context yet (initial load)
+          const userIdStr = userId?.toString();
+          const presenceData = presenceMap[userIdStr];
+          const isOnline = presenceData 
+            ? presenceData.isOnline === true  // If in presence context, use that (authoritative)
+            : (profile.isOnline === true);    // Otherwise, use profile data (initial load only)
           return (
             <ProfileGridCard
               key={profile._id || profile.userId?._id || index}

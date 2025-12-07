@@ -400,11 +400,16 @@ export default function Home() {
       }
 
       // Online filter - only show online users if filter is enabled
-      // Use presence context as source of truth (real-time updates)
+      // Use presence context as AUTHORITATIVE source of truth (real-time updates)
       if (onlineFilter) {
         const userId = profile.userId?._id || profile.userId || profile._id;
-        // Check presence context first (real-time), fallback to profile data (initial load)
-        const isOnline = isUserOnline(userId) || profile.isOnline === true;
+        // Presence context is authoritative - if user is marked offline in context, they're offline
+        // Only check profile data if not in presence context yet (initial load)
+        const presenceData = presenceMap[userId?.toString()];
+        const isOnline = presenceData 
+          ? presenceData.isOnline === true  // If in presence context, use that (authoritative)
+          : (profile.isOnline === true);    // Otherwise, use profile data (initial load only)
+        
         if (!isOnline) {
           return false;
         }
@@ -412,7 +417,7 @@ export default function Home() {
 
       return true;
     });
-  }, [searchQuery, filters, currentUserLocation, onlineFilter, isUserOnline]);
+  }, [searchQuery, filters, currentUserLocation, onlineFilter, presenceMap, isUserOnline]);
 
   // Apply search and filters to profiles
   // Include presenceMap in dependencies so it reacts to real-time presence changes
