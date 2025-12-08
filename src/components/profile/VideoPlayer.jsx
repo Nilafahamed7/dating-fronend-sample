@@ -237,3 +237,6 @@ export default function VideoPlayer({ videoUrl, thumbnailUrl, onClose, autoplay 
   );
 }
 
+
+
+

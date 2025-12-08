@@ -77,4 +77,3 @@ export default function ProfileGrid({ profiles, currentUserLocation, onAction, l
     </div>
   );
 }
-

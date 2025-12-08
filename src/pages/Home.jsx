@@ -53,7 +53,7 @@ export default function Home() {
   const [showIncognitoConfirm, setShowIncognitoConfirm] = useState(false);
   const navBarContext = useNavBarContext();
   const [searchParams, setSearchParams] = useSearchParams();
-  
+
   // Online filter state - read from URL query param
   const [onlineFilter, setOnlineFilter] = useState(() => {
     return searchParams.get('online') === 'true';
@@ -213,7 +213,7 @@ export default function Home() {
         updateUser(updatedUserData);
       }
     } catch (error) {
-      }
+    }
   };
 
   const getCurrentLocation = () => {
@@ -226,7 +226,7 @@ export default function Home() {
           });
         },
         (error) => {
-          }
+        }
       );
     }
   };
@@ -257,7 +257,7 @@ export default function Home() {
       // Don't apply filters here - let filteredProfiles useMemo handle it
       // This ensures all profiles are available and filters can be changed without reloading
       setProfiles(apiProfiles);
-      
+
       // Seed presence map from initial profile data (presence context will handle real-time updates)
       if (apiProfiles && Array.isArray(apiProfiles)) {
         seedPresenceFromProfiles(apiProfiles);
@@ -406,10 +406,10 @@ export default function Home() {
         // Presence context is authoritative - if user is marked offline in context, they're offline
         // Only check profile data if not in presence context yet (initial load)
         const presenceData = presenceMap[userId?.toString()];
-        const isOnline = presenceData 
+        const isOnline = presenceData
           ? presenceData.isOnline === true  // If in presence context, use that (authoritative)
           : (profile.isOnline === true);    // Otherwise, use profile data (initial load only)
-        
+
         if (!isOnline) {
           return false;
         }
@@ -435,7 +435,7 @@ export default function Home() {
       searchParams.delete('online');
     }
     setSearchParams(searchParams);
-    
+
     // For real-time updates, we use client-side filtering
     // Only reload from server if we don't have profiles yet
     if (profiles.length === 0) {
@@ -625,7 +625,7 @@ export default function Home() {
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to send gift';
       toast.error(errorMessage);
-      }
+    }
   };
 
   const activeFilterCount = () => {
@@ -848,171 +848,169 @@ export default function Home() {
             overflow: 'hidden',
           }}
         >
-        {/* NavBar actions are handled by GlobalNavBar via context */}
+          {/* NavBar actions are handled by GlobalNavBar via context */}
 
-        {/* Main Content Area - Scrollable container between fixed navbars */}
-        <PageContainer
-          className="bg-gradient-to-br from-velora-gray via-white to-velora-gray/50"
-          fullWidth={true}
-          padding={true}
-        >
-          <div className="w-full" style={{ position: 'relative', zIndex: 1 }}>
-          {/* Search Bar with Filter */}
-          <motion.div
-            className="px-4 pt-4 pb-3 flex-shrink-0 bg-transparent"
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{
-              type: "spring",
-              stiffness: 300,
-              damping: 25,
-              delay: 0.1
-            }}
+          {/* Main Content Area - Scrollable container between fixed navbars */}
+          <PageContainer
+            className="bg-gradient-to-br from-velora-gray via-white to-velora-gray/50"
+            fullWidth={true}
+            padding={true}
           >
-            <div className="relative flex items-center gap-3">
-              {/* Online Filter Toggle - Segmented Control */}
+            <div className="w-full" style={{ position: 'relative', zIndex: 1 }}>
+              {/* Search Bar with Filter */}
               <motion.div
-                className="flex items-center bg-white rounded-full border-2 border-gray-300 overflow-hidden shadow-sm"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <button
-                  onClick={() => handleOnlineFilterToggle(false)}
-                  className={`px-4 py-2.5 text-sm font-semibold transition-all relative ${
-                    !onlineFilter
-                      ? 'bg-velora-primary text-velora-black'
-                      : 'bg-transparent text-gray-600 hover:bg-gray-50'
-                  }`}
-                  aria-label="Show all profiles"
-                  aria-pressed={!onlineFilter}
-                >
-                  All
-                </button>
-                <div className="w-px h-6 bg-gray-300" />
-                <button
-                  onClick={() => handleOnlineFilterToggle(true)}
-                  className={`px-4 py-2.5 text-sm font-semibold transition-all relative flex items-center gap-1.5 ${
-                    onlineFilter
-                      ? 'bg-velora-primary text-velora-black'
-                      : 'bg-transparent text-gray-600 hover:bg-gray-50'
-                  }`}
-                  aria-label="Show only online profiles"
-                  aria-pressed={onlineFilter}
-                >
-                  <span>Online</span>
-                  {onlineFilter && (
-                    <motion.span
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="w-2 h-2 bg-[#25D366] rounded-full"
-                    />
-                  )}
-                </button>
-              </motion.div>
-              
-              <motion.div
-                className="flex-1 relative"
-                whileFocus={{ scale: 1.02 }}
-                transition={{ type: "spring", stiffness: 400, damping: 25 }}
-              >
-                <motion.div
-                  animate={{
-                    scale: [1, 1.1, 1],
-                    rotate: [0, 10, -10, 0]
-                  }}
-                  transition={{
-                    duration: 2,
-                    repeat: Infinity,
-                    repeatDelay: 3
-                  }}
-                >
-                  <MagnifyingGlassIcon className="absolute left-5 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                </motion.div>
-                <motion.input
-                  type="text"
-                  placeholder="Start Your Search for the Perfect Partner"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-14 pr-5 py-3.5 bg-transparent border-2 border-gray-300 rounded-2xl text-black placeholder-gray-500 font-medium focus:outline-none focus:ring-2 focus:ring-velora-primary/50 focus:border-velora-primary transition-all"
-                  whileFocus={{
-                    scale: 1.02,
-                    borderColor: "#FFD700",
-                    boxShadow: "0 0 0 3px rgba(255, 215, 0, 0.1)"
-                  }}
-                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                />
-              </motion.div>
-              <motion.button
-                onClick={() => setShowFilters(true)}
-                whileHover={{
-                  scale: 1.1,
-                  rotate: [0, -5, 5, 0],
-                  boxShadow: "0 10px 25px rgba(0,0,0,0.2)"
-                }}
-                whileTap={{ scale: 0.9 }}
-                animate={{
-                  boxShadow: [
-                    "0 4px 15px rgba(0,0,0,0.1)",
-                    "0 8px 20px rgba(255, 215, 0, 0.3)",
-                    "0 4px 15px rgba(0,0,0,0.1)"
-                  ]
-                }}
+                className="px-4 pt-4 pb-3 flex-shrink-0 bg-transparent"
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
                 transition={{
-                  boxShadow: {
-                    duration: 2,
-                    repeat: Infinity,
-                    ease: "easeInOut"
-                  }
+                  type: "spring",
+                  stiffness: 300,
+                  damping: 25,
+                  delay: 0.1
                 }}
-                className="relative p-3.5 bg-velora-primary hover:opacity-90 rounded-2xl transition-all shadow-md"
               >
-                <FunnelIcon className="w-6 h-6 text-black" />
-                {activeFilterCount() > 0 && (
-                  <motion.span
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="absolute -top-1 -right-1 w-5 h-5 bg-black text-velora-primary text-xs font-bold rounded-full flex items-center justify-center"
+                <div className="relative flex items-center gap-3">
+                  {/* Online Filter Toggle - Segmented Control */}
+                  <motion.div
+                    className="flex items-center bg-white rounded-full border-2 border-gray-300 overflow-hidden shadow-sm"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                   >
-                    {activeFilterCount()}
-                  </motion.span>
-                )}
-              </motion.button>
-            </div>
-          </motion.div>
+                    <button
+                      onClick={() => handleOnlineFilterToggle(false)}
+                      className={`px-4 py-2.5 text-sm font-semibold transition-all relative ${!onlineFilter
+                          ? 'bg-velora-primary text-velora-black'
+                          : 'bg-transparent text-gray-600 hover:bg-gray-50'
+                        }`}
+                      aria-label="Show all profiles"
+                      aria-pressed={!onlineFilter}
+                    >
+                      All
+                    </button>
+                    <div className="w-px h-6 bg-gray-300" />
+                    <button
+                      onClick={() => handleOnlineFilterToggle(true)}
+                      className={`px-4 py-2.5 text-sm font-semibold transition-all relative flex items-center gap-1.5 ${onlineFilter
+                          ? 'bg-velora-primary text-velora-black'
+                          : 'bg-transparent text-gray-600 hover:bg-gray-50'
+                        }`}
+                      aria-label="Show only online profiles"
+                      aria-pressed={onlineFilter}
+                    >
+                      <span>Online</span>
+                      {onlineFilter && (
+                        <motion.span
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className="w-2 h-2 bg-[#25D366] rounded-full"
+                        />
+                      )}
+                    </button>
+                  </motion.div>
 
-          {/* Results Grid Container - Visible and properly positioned */}
-          <motion.div
-            className="px-4 pb-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            style={{
-              width: '100%',
-              minHeight: 0,
-              position: 'relative',
-              zIndex: 1,
-            }}
-          >
-          {viewMode === 'grid' ? (
-            <ProfileGrid
-              profiles={filteredProfiles}
-              onAction={handleSwipe}
-              currentUserLocation={currentUserLocation}
-              loading={loading}
-              presenceMap={presenceMap}
-              onlineFilter={onlineFilter}
-            />
-          ) : (
-            <SwipeStack
-              profiles={filteredProfiles}
-              onSwipe={handleSwipe}
-              currentUserLocation={currentUserLocation}
-              loading={loading}
-            />
-          )}
-          </motion.div>
-          </div>
-        </PageContainer>
+                  <motion.div
+                    className="flex-1 relative"
+                    whileFocus={{ scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                  >
+                    <motion.div
+                      animate={{
+                        scale: [1, 1.1, 1],
+                        rotate: [0, 10, -10, 0]
+                      }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        repeatDelay: 3
+                      }}
+                    >
+                      <MagnifyingGlassIcon className="absolute left-5 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    </motion.div>
+                    <motion.input
+                      type="text"
+                      placeholder="Start Your Search for the Perfect Partner"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-14 pr-5 py-3.5 bg-transparent border-2 border-gray-300 rounded-2xl text-black placeholder-gray-500 font-medium focus:outline-none focus:ring-2 focus:ring-velora-primary/50 focus:border-velora-primary transition-all"
+                      whileFocus={{
+                        scale: 1.02,
+                        borderColor: "#FFD700",
+                        boxShadow: "0 0 0 3px rgba(255, 215, 0, 0.1)"
+                      }}
+                      transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                    />
+                  </motion.div>
+                  <motion.button
+                    onClick={() => setShowFilters(true)}
+                    whileHover={{
+                      scale: 1.1,
+                      rotate: [0, -5, 5, 0],
+                      boxShadow: "0 10px 25px rgba(0,0,0,0.2)"
+                    }}
+                    whileTap={{ scale: 0.9 }}
+                    animate={{
+                      boxShadow: [
+                        "0 4px 15px rgba(0,0,0,0.1)",
+                        "0 8px 20px rgba(255, 215, 0, 0.3)",
+                        "0 4px 15px rgba(0,0,0,0.1)"
+                      ]
+                    }}
+                    transition={{
+                      boxShadow: {
+                        duration: 2,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }
+                    }}
+                    className="relative p-3.5 bg-velora-primary hover:opacity-90 rounded-2xl transition-all shadow-md"
+                  >
+                    <FunnelIcon className="w-6 h-6 text-black" />
+                    {activeFilterCount() > 0 && (
+                      <motion.span
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="absolute -top-1 -right-1 w-5 h-5 bg-black text-velora-primary text-xs font-bold rounded-full flex items-center justify-center"
+                      >
+                        {activeFilterCount()}
+                      </motion.span>
+                    )}
+                  </motion.button>
+                </div>
+              </motion.div>
+
+              {/* Results Grid Container - Visible and properly positioned */}
+              <motion.div
+                className="px-4 pb-4"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+                style={{
+                  width: '100%',
+                  minHeight: 0,
+                  position: 'relative',
+                  zIndex: 1,
+                }}
+              >
+                {viewMode === 'grid' ? (
+                  <ProfileGrid
+                    profiles={filteredProfiles}
+                    onAction={handleSwipe}
+                    currentUserLocation={currentUserLocation}
+                    loading={loading}
+                    presenceMap={presenceMap}
+                    onlineFilter={onlineFilter}
+                  />
+                ) : (
+                  <SwipeStack
+                    profiles={filteredProfiles}
+                    onSwipe={handleSwipe}
+                    currentUserLocation={currentUserLocation}
+                    loading={loading}
+                  />
+                )}
+              </motion.div>
+            </div>
+          </PageContainer>
         </div>
       </div>
 
@@ -1092,4 +1090,3 @@ export default function Home() {
     </div>
   );
 }
-

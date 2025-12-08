@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { videoProfileService } from '../../services/videoProfileService';
 import { useAuth } from '../../contexts/AuthContext';
 import VideoPlayer from './VideoPlayer';
 import LockedVideo from './LockedVideo';
 import LoadingSpinner from '../common/LoadingSpinner';
-import { VideoCameraIcon, ClockIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { VideoCameraIcon, ClockIcon, ExclamationTriangleIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { LockClosedIcon } from '@heroicons/react/24/solid';
+import toast from 'react-hot-toast';
 
 export default function ProfileVideo({ userId, isOwn = false, className = '' }) {
   const { user: currentUser } = useAuth();
@@ -13,6 +15,8 @@ export default function ProfileVideo({ userId, isOwn = false, className = '' }) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showPlayer, setShowPlayer] = useState(false);
+  const [showUnlockModal, setShowUnlockModal] = useState(false);
+  const [unlocking, setUnlocking] = useState(false);
 
   useEffect(() => {
     if (!userId) {
@@ -40,6 +44,25 @@ export default function ProfileVideo({ userId, isOwn = false, className = '' }) 
 
     loadVideo();
   }, [userId]);
+
+  const handleUnlock = async () => {
+    try {
+      setUnlocking(true);
+      const response = await videoProfileService.unlockVideo(videoData.videoId);
+
+      if (response.success) {
+        toast.success('Video unlocked successfully!');
+        setVideoData(prev => ({ ...prev, isUnlocked: true }));
+        setShowUnlockModal(false);
+      } else {
+        throw new Error(response.message || 'Failed to unlock video');
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message || 'Failed to unlock video');
+    } finally {
+      setUnlocking(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -142,20 +165,82 @@ export default function ProfileVideo({ userId, isOwn = false, className = '' }) 
     return null;
   }
 
+  // Visibility Logic for other users
+  const isFemale = currentUser?.gender?.toLowerCase() === 'female';
+  const isPremium = currentUser?.isPremium;
+  const canView = isFemale || isPremium || videoData.isUnlocked;
+
   // Non-owner: check if they can view
-  if (!videoData.canViewVideo) {
+  if (!canView) {
     // Show locked video UI
     return (
       <div className={className}>
         <LockedVideo
           thumbnailUrl={videoData.thumbnailUrl}
           caption={videoData.caption}
+          onUnlock={() => setShowUnlockModal(true)}
         />
+
+        {/* Unlock Modal */}
+        <AnimatePresence>
+          {showUnlockModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden relative"
+              >
+                <button
+                  onClick={() => setShowUnlockModal(false)}
+                  className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200 transition-colors"
+                >
+                  <XMarkIcon className="w-5 h-5" />
+                </button>
+
+                <div className="p-6 text-center">
+                  <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <LockClosedIcon className="w-8 h-8 text-yellow-600" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">Unlock Profile Video</h3>
+                  <p className="text-gray-600 mb-6">
+                    Unlock this video to watch it anytime. This will deduct <span className="font-bold text-yellow-600">50 coins</span> from your wallet.
+                  </p>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setShowUnlockModal(false)}
+                      className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleUnlock}
+                      disabled={unlocking}
+                      className="flex-1 px-4 py-2.5 bg-yellow-500 text-black font-bold rounded-xl hover:bg-yellow-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {unlocking ? (
+                        <>
+                          <LoadingSpinner size="sm" />
+                          Unlocking...
+                        </>
+                      ) : (
+                        <>
+                          Unlock Now
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }
 
-  // Premium user can view
+  // Allowed user can view
   if (videoData.videoUrl && videoData.status === 'approved') {
     return (
       <div className={className}>
@@ -204,4 +289,7 @@ export default function ProfileVideo({ userId, isOwn = false, className = '' }) 
 
   return null;
 }
+
+
+
 

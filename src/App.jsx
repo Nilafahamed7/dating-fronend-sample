@@ -47,6 +47,8 @@ const AdminForums = lazy(() => import('./pages/admin/AdminForums'));
 const AdminChats = lazy(() => import('./pages/admin/AdminChats'));
 const AdminGifts = lazy(() => import('./pages/admin/AdminGifts'));
 const AdminGiftManagement = lazy(() => import('./pages/admin/AdminGiftManagement'));
+const AdminVerifications = lazy(() => import('./pages/admin/AdminVerifications'));
+const AdminVerificationReview = lazy(() => import('./pages/admin/AdminVerificationReview'));
 const AdminPayments = lazy(() => import('./pages/admin/AdminPayments'));
 const AdminWithdrawals = lazy(() => import('./pages/admin/AdminWithdrawals'));
 const AdminCoins = lazy(() => import('./pages/admin/AdminCoins'));
@@ -1111,6 +1113,22 @@ function AnimatedRoutes() {
           element={
             <AdminProtectedRoute>
               <AdminUserList />
+            </AdminProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/verifications"
+          element={
+            <AdminProtectedRoute>
+              <AdminVerifications />
+            </AdminProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/verifications/:id"
+          element={
+            <AdminProtectedRoute>
+              <AdminVerificationReview />
             </AdminProtectedRoute>
           }
         />

@@ -6,6 +6,7 @@ import { videoProfileService } from '../../services/videoProfileService';
 import { useAuth } from '../../contexts/AuthContext';
 import PhotoUpload from './PhotoUpload';
 import VideoUpload from './VideoUpload';
+import CameraVerification from '../verification/CameraVerification';
 import { MAX_BIO_LENGTH, MARITAL_STATUSES, MAX_LOOKING_FOR_LENGTH, GENDERS } from '../../utils/constants';
 import LoadingSpinner from '../common/LoadingSpinner';
 import toast from 'react-hot-toast';
@@ -20,7 +21,8 @@ import {
   ShieldCheckIcon,
   XMarkIcon,
   CheckCircleIcon,
-  ArrowLeftIcon
+  ArrowLeftIcon,
+  CameraIcon
 } from '@heroicons/react/24/outline';
 import { CheckBadgeIcon } from '@heroicons/react/24/solid';
 
@@ -51,8 +53,7 @@ export default function ProfileEdit({ profile, onSave }) {
   const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [verificationFile, setVerificationFile] = useState(null);
-  const [submittingVerification, setSubmittingVerification] = useState(false);
+  const [showCameraVerification, setShowCameraVerification] = useState(false);
   const [errors, setErrors] = useState({});
   const [formTouched, setFormTouched] = useState(false); // Track if form has been interacted with
   const [hasInitialData, setHasInitialData] = useState(false); // Track if profile has initial data
@@ -469,8 +470,8 @@ export default function ProfileEdit({ profile, onSave }) {
                 if (statesResponse.success && Array.isArray(statesResponse.states)) {
                   setAvailableStates(statesResponse.states);
                 }
-        } catch (error) {
-                }
+              } catch (error) {
+              }
             }
           }
 
@@ -516,7 +517,7 @@ export default function ProfileEdit({ profile, onSave }) {
       // Dismiss any existing toasts and show only one
       toast.dismiss();
       toast.error(message);
-      } finally {
+    } finally {
       setUploading(false);
     }
   };
@@ -566,21 +567,11 @@ export default function ProfileEdit({ profile, onSave }) {
     }
   };
 
-  const handleVerificationSubmit = async () => {
-    if (!verificationFile) {
-      toast.error('Please select a photo for verification');
-      return;
-    }
-    try {
-      setSubmittingVerification(true);
-      await profileService.submitVerification(verificationFile);
-      toast.success('Photo verification submitted! It will be reviewed by our team.');
-      setVerificationFile(null);
-    } catch (error) {
-      const message = error.response?.data?.message || 'Failed to submit verification';
-      toast.error(message);
-    } finally {
-      setSubmittingVerification(false);
+  const handleVerificationSuccess = async () => {
+    setShowCameraVerification(false);
+    // Reload profile to update verification status
+    if (onSave) {
+      onSave();
     }
   };
 
@@ -616,9 +607,9 @@ export default function ProfileEdit({ profile, onSave }) {
     // Bio validation
     if (formData.bio !== undefined && formData.bio !== null) {
       if (formData.bio.trim().length === 0) {
-      newErrors.bio = 'Bio is required';
-    } else if (formData.bio.length < 10) {
-      newErrors.bio = 'Bio must be at least 10 characters';
+        newErrors.bio = 'Bio is required';
+      } else if (formData.bio.length < 10) {
+        newErrors.bio = 'Bio must be at least 10 characters';
       }
     }
 
@@ -964,849 +955,817 @@ export default function ProfileEdit({ profile, onSave }) {
           </div>
         </motion.div>
 
-      {/* Photos Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-3xl shadow-xl p-6 border border-gray-100 hover:shadow-2xl transition-shadow duration-300"
-      >
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-bold text-black flex items-center gap-2">
-            <div className="p-2 bg-yellow-100 rounded-xl">
-              <PhotoIcon className="w-6 h-6 text-yellow-600" />
-            </div>
-            Photos ({photos.length}/6) <span className="text-red-500">*</span>
-          </h3>
-          {photos.length < 6 && (
-            <span className="text-sm text-gray-500 bg-yellow-50 px-3 py-1 rounded-full">Add up to 6 photos</span>
-          )}
-        </div>
-        <PhotoUpload
-          photos={photos}
-          onUpload={handlePhotoUpload}
-          onDelete={handlePhotoDelete}
-          onPrivacyChange={handlePhotoPrivacyChange}
-        />
-        {shouldShowError('photos') && (
-          <p className="mt-2 text-sm text-red-500" role="alert" aria-live="polite">{errors.photos}</p>
-        )}
-        {uploading && (
-          <div className="mt-4 flex items-center gap-2 text-yellow-600">
-            <LoadingSpinner size="sm" />
-            <span className="text-sm font-medium">Uploading...</span>
-          </div>
-        )}
-      </motion.div>
-
-      {/* Video Upload Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700"
-      >
-        <VideoUpload
-          user={user}
-          existingVideo={videoProfile}
-          onVideoUploaded={(newVideo) => {
-            setVideoProfile(newVideo);
-          }}
-        />
-      </motion.div>
-
-      {/* Bio Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="bg-white rounded-3xl shadow-xl p-6 border border-gray-100 hover:shadow-2xl transition-shadow duration-300"
-      >
-        <label htmlFor="bio" className="block text-lg font-bold text-black mb-3 flex items-center gap-2">
-          <div className="p-2 bg-yellow-100 rounded-xl">
-            <UserIcon className="w-5 h-5 text-yellow-600" />
-          </div>
-          About Me <span className="text-red-500">*</span>
-        </label>
-        <textarea
-          id="bio"
-          name="bio"
-          value={formData.bio}
-          onChange={(e) => {
-            handleChange(e);
-            if (errors.bio) {
-              setErrors({ ...errors, bio: null });
-            }
-          }}
-          onBlur={() => handleBlur('bio')}
-          maxLength={MAX_BIO_LENGTH}
-          rows={6}
-          className={`w-full px-4 py-3 bg-gray-50 border-2 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 resize-none transition-all ${
-            shouldShowError('bio')
-              ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
-              : 'border-gray-200 focus:ring-yellow-500 focus:border-yellow-400'
-          }`}
-          placeholder="Tell people about yourself, your interests, what you're looking for..."
-        />
-        <div className="flex items-center justify-between mt-2">
-          <div>
-            <p className="text-xs text-gray-500">
-              {formData.bio.length}/{MAX_BIO_LENGTH} characters
-            </p>
-            {shouldShowError('bio') && (
-              <p className="text-sm text-red-500 mt-1" role="alert" aria-live="polite">{errors.bio}</p>
-            )}
-          </div>
-          {formData.bio.length > 0 && (
-            <motion.button
-              type="button"
-              onClick={() => {
-                setFormData({ ...formData, bio: '' });
-                setErrors({ ...errors, bio: null });
-              }}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              className="text-xs text-red-500 hover:text-red-600"
-            >
-              Clear
-            </motion.button>
-          )}
-        </div>
-      </motion.div>
-
-      {/* Looking For Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15 }}
-        className="bg-white rounded-3xl shadow-xl p-6 border border-gray-100 hover:shadow-2xl transition-shadow duration-300"
-      >
-        <label htmlFor="lookingFor" className="block text-lg font-bold text-black mb-3 flex items-center gap-2">
-          <div className="p-2 bg-yellow-100 rounded-xl">
-            <HeartIcon className="w-5 h-5 text-yellow-600" />
-          </div>
-          What I'm Looking For
-        </label>
-        <textarea
-          id="lookingFor"
-          name="lookingFor"
-          value={formData.lookingFor}
-          onChange={handleChange}
-          maxLength={MAX_LOOKING_FOR_LENGTH}
-          rows={3}
-          className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-400 resize-none transition-all"
-          placeholder="Describe what you're looking for in a partner or relationship..."
-        />
-        <p className="text-xs text-gray-500 mt-2">
-          {formData.lookingFor.length}/{MAX_LOOKING_FOR_LENGTH} characters
-        </p>
-      </motion.div>
-
-      {/* Gender Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.16 }}
-        className="bg-white rounded-3xl shadow-xl p-6 border border-gray-100 hover:shadow-2xl transition-shadow duration-300"
-      >
-        <label htmlFor="gender" className="block text-lg font-bold text-black mb-3 flex items-center gap-2">
-          <div className="p-2 bg-yellow-100 rounded-xl">
-            <UserIcon className="w-5 h-5 text-yellow-600" />
-          </div>
-          Gender <span className="text-red-500">*</span>
-        </label>
-        <select
-          id="gender"
-          name="gender"
-          value={formData.gender}
-          onChange={(e) => {
-            handleChange(e);
-            if (errors.gender) {
-              setErrors({ ...errors, gender: null });
-            }
-          }}
-          onBlur={() => handleBlur('gender')}
-          required
-          className={`w-full px-4 py-3 bg-gray-50 border-2 rounded-xl text-gray-900 focus:outline-none focus:ring-2 transition-all ${
-            shouldShowError('gender')
-              ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
-              : 'border-gray-200 focus:ring-yellow-500 focus:border-yellow-400'
-          }`}
-        >
-          <option value="">Select your gender</option>
-          {GENDERS.map((gender) => (
-            <option key={gender} value={gender}>
-              {gender.charAt(0).toUpperCase() + gender.slice(1)}
-            </option>
-          ))}
-        </select>
-        {shouldShowError('gender') && (
-          <p className="mt-1 text-sm text-red-500" role="alert" aria-live="polite">{errors.gender}</p>
-        )}
-      </motion.div>
-
-      {/* Marital Status Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.17 }}
-        className="bg-white rounded-3xl shadow-xl p-6 border border-gray-100 hover:shadow-2xl transition-shadow duration-300"
-      >
-        <label htmlFor="maritalStatus" className="block text-lg font-bold text-black mb-3 flex items-center gap-2">
-          <div className="p-2 bg-yellow-100 rounded-xl">
-            <UserIcon className="w-5 h-5 text-yellow-600" />
-          </div>
-          Marital Status
-        </label>
-        <select
-          id="maritalStatus"
-          name="maritalStatus"
-          value={formData.maritalStatus}
-          onChange={handleChange}
-          className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-400 transition-all"
-        >
-          <option value="">Select marital status</option>
-          {MARITAL_STATUSES.map((status) => (
-            <option key={status} value={status}>
-              {status}
-            </option>
-          ))}
-        </select>
-      </motion.div>
-
-      {/* Religion Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.18 }}
-        className="bg-white rounded-3xl shadow-xl p-6 border border-gray-100 hover:shadow-2xl transition-shadow duration-300"
-      >
-        <label htmlFor="religion" className="block text-lg font-bold text-black mb-3 flex items-center gap-2">
-          <div className="p-2 bg-yellow-100 rounded-xl">
-            <UserIcon className="w-5 h-5 text-yellow-600" />
-          </div>
-          Religion
-        </label>
-        {loadingReligions ? (
-          <div className="flex items-center justify-center py-4">
-            <div className="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-yellow-500"></div>
-            <span className="ml-2 text-gray-600 text-sm">Loading religions...</span>
-          </div>
-        ) : (
-          <select
-            id="religion"
-            name="religion"
-            value={formData.religion}
-            onChange={handleChange}
-            className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-400 transition-all"
-          >
-            <option value="">Select religion</option>
-            {religions.map((religion) => (
-              <option key={religion} value={religion}>
-                {religion}
-              </option>
-            ))}
-          </select>
-        )}
-        {religions.length === 0 && !loadingReligions && (
-          <p className="text-xs text-gray-500 mt-2">No religions available. Please contact admin to add religions.</p>
-        )}
-      </motion.div>
-
-      {/* Interests Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="bg-white rounded-3xl shadow-xl p-6 border border-gray-100 hover:shadow-2xl transition-shadow duration-300"
-      >
-        <label className="block text-lg font-bold text-black mb-4 flex items-center gap-2">
-          <div className="p-2 bg-yellow-100 rounded-xl">
-            <HeartIcon className="w-5 h-5 text-yellow-600" />
-          </div>
-          Interests ({formData.interests.length}) <span className="text-red-500">*</span>
-        </label>
-        {loadingInterests ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-yellow-500"></div>
-            <span className="ml-2 text-gray-600">Loading interests...</span>
-          </div>
-        ) : interests.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <p>No interests available. Please contact admin to add interests.</p>
-          </div>
-        ) : (
-          <div className="flex flex-wrap gap-3">
-            {interests.map((interest) => {
-              const isSelected = formData.interests.includes(interest);
-              return (
-                <motion.button
-                  key={interest}
-                  type="button"
-                  onClick={() => {
-                    handleInterestToggle(interest);
-                    if (errors.interests) {
-                      setErrors({ ...errors, interests: null });
-                    }
-                  }}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                    isSelected
-                      ? 'bg-yellow-500 text-black shadow-md hover:bg-yellow-600'
-                      : 'bg-gray-100 text-gray-700 hover:bg-yellow-50 hover:border-yellow-300 border border-transparent'
-                  }`}
-                >
-                  {interest}
-                  {isSelected && (
-                    <CheckCircleIcon className="w-4 h-4 inline-block ml-2" />
-                  )}
-                </motion.button>
-              );
-            })}
-          </div>
-        )}
-        {shouldShowError('interests') && (
-          <p className="mt-2 text-sm text-red-500" role="alert" aria-live="polite">{errors.interests}</p>
-        )}
-      </motion.div>
-
-      {/* Location Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="bg-white rounded-3xl shadow-xl p-6 border border-gray-100 hover:shadow-2xl transition-shadow duration-300"
-      >
-        <div className="flex items-center justify-between mb-4">
-          <label className="block text-lg font-bold text-black flex items-center gap-2">
-            <div className="p-2 bg-yellow-100 rounded-xl">
-              <MapPinIcon className="w-5 h-5 text-yellow-600" />
-            </div>
-            Location <span className="text-red-500">*</span>
-          </label>
-          <motion.button
-            type="button"
-            onClick={handleGetCurrentLocation}
-            disabled={gettingLocation}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black text-sm font-medium rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 shadow-md"
-          >
-            {gettingLocation ? (
-              <>
-                <LoadingSpinner size="sm" />
-                <span>Getting Location...</span>
-              </>
-            ) : (
-              <>
-                <MapPinIcon className="w-4 h-4" />
-                <span>Use Current Location</span>
-              </>
-            )}
-          </motion.button>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-2">
-              City <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="city"
-              name="location.city"
-              value={formData.location.city || ''}
-              onChange={(e) => {
-                handleChange(e);
-                if (errors.city) {
-                  setErrors({ ...errors, city: null });
-                }
-              }}
-              onBlur={() => handleBlur('city')}
-              className={`w-full px-4 py-3 bg-gray-50 border-2 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition-all ${
-                shouldShowError('city')
-                  ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
-                  : 'border-gray-200 focus:ring-yellow-500 focus:border-yellow-400'
-              }`}
-              placeholder="Enter your city"
-            />
-            {shouldShowError('city') && (
-              <p className="mt-1 text-sm text-red-500" role="alert" aria-live="polite">{errors.city}</p>
-            )}
-          </div>
-          <div>
-            <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-2">
-              Country <span className="text-red-500">*</span>
-            </label>
-            {loadingCountries ? (
-              <div className="flex items-center gap-2 px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl">
-                <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-500"></div>
-                <span className="text-sm text-gray-600">Loading countries...</span>
-              </div>
-            ) : (
-              <select
-              id="country"
-              name="location.country"
-              value={formData.location.country || ''}
-              onChange={(e) => {
-                handleChange(e);
-                if (errors.country) {
-                  setErrors({ ...errors, country: null });
-                }
-              }}
-              onBlur={() => handleBlur('country')}
-                className={`w-full px-4 py-3 bg-gray-50 border-2 rounded-xl text-gray-900 focus:outline-none focus:ring-2 transition-all ${
-                shouldShowError('country')
-                  ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
-                  : 'border-gray-200 focus:ring-yellow-500 focus:border-yellow-400'
-              }`}
-              >
-                <option value="">Select your country</option>
-                {countries.map((country) => (
-                  <option key={country.code} value={country.name}>
-                    {country.name}
-                  </option>
-                ))}
-              </select>
-            )}
-            {shouldShowError('country') && (
-              <p className="mt-1 text-sm text-red-500" role="alert" aria-live="polite">{errors.country}</p>
-            )}
-          </div>
-          <div>
-            <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-2">
-              State <span className="text-red-500">*</span>
-            </label>
-            {loadingStates ? (
-              <div className="flex items-center gap-2 px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl">
-                <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-500"></div>
-                <span className="text-sm text-gray-600">Loading states...</span>
-              </div>
-            ) : !formData.location.country ? (
-              <select
-                id="state"
-                disabled
-                className="w-full px-4 py-3 bg-gray-100 border-2 border-gray-200 rounded-xl text-gray-500 cursor-not-allowed"
-              >
-                <option value="">Please select a country first</option>
-              </select>
-            ) : (
-              <select
-                id="state"
-                name="location.state"
-                value={formData.location.state || ''}
-                onChange={(e) => {
-                  handleChange(e);
-                  if (errors.state) {
-                    setErrors({ ...errors, state: null });
-                  }
-                }}
-                onBlur={() => handleBlur('state')}
-                className={`w-full px-4 py-3 bg-gray-50 border-2 rounded-xl text-gray-900 focus:outline-none focus:ring-2 transition-all ${
-                  shouldShowError('state')
-                    ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
-                    : 'border-gray-200 focus:ring-yellow-500 focus:border-yellow-400'
-                }`}
-              >
-                <option value="">Select your state</option>
-                {availableStates.map((state) => (
-                  <option key={state.code} value={state.name}>
-                    {state.name}
-                  </option>
-                ))}
-              </select>
-            )}
-            {shouldShowError('state') && (
-              <p className="mt-1 text-sm text-red-500" role="alert" aria-live="polite">{errors.state}</p>
-            )}
-            {formData.location.country && availableStates.length === 0 && !loadingStates && (
-              <p className="mt-1 text-xs text-gray-500">No states available for this country. Please enter manually.</p>
-            )}
-          </div>
-          <div className="md:col-span-2">
-            <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-2">
-              Address (Optional)
-            </label>
-            <input
-              id="address"
-              name="location.address"
-              value={formData.location.address || ''}
-              onChange={handleChange}
-              className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-400"
-              placeholder="Enter your address"
-            />
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Preferences Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="bg-gradient-to-br from-yellow-50 via-yellow-50/50 to-white rounded-3xl shadow-xl p-6 border-2 border-yellow-200 hover:shadow-2xl transition-shadow duration-300"
-      >
-        <label className="block text-lg font-bold text-black mb-4">Search Preferences</label>
-        <div className="space-y-4">
-          {/* Age Range */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Age Range: {formData.preferences.ageRange.min} - {formData.preferences.ageRange.max} years <span className="text-red-500">*</span>
-            </label>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs text-gray-500 mb-2">Minimum Age <span className="text-red-500">*</span></label>
-                <input
-                  type="number"
-                  name="preferences.ageRange.min"
-                  value={formData.preferences.ageRange.min}
-                  onChange={(e) => {
-                    handleChange(e);
-                    // Clear errors immediately when user types
-                    const numValue = parseInt(e.target.value, 10);
-                    if (!isNaN(numValue) && numValue >= 18 && numValue <= 100) {
-                      // Valid value, clear errors
-                      setErrors((prevErrors) => {
-                        const newErrors = { ...prevErrors };
-                        delete newErrors.ageMin;
-                        delete newErrors.ageRange;
-                        return newErrors;
-                      });
-                    }
-                  }}
-                  onBlur={(e) => {
-                    handleBlur('ageMin');
-                    // Ensure value is within bounds on blur
-                    const numValue = parseInt(e.target.value, 10);
-                    if (isNaN(numValue) || numValue < 18) {
-                      // Set to minimum if invalid or too low
-                      setFormData((prev) => ({
-                        ...prev,
-                        preferences: {
-                          ...prev.preferences,
-                          ageRange: {
-                            ...prev.preferences.ageRange,
-                            min: 18,
-                          },
-                        },
-                      }));
-                    } else if (numValue > 100) {
-                      // Set to maximum if too high
-                      setFormData((prev) => ({
-                        ...prev,
-                        preferences: {
-                          ...prev.preferences,
-                          ageRange: {
-                            ...prev.preferences.ageRange,
-                            min: 100,
-                          },
-                        },
-                      }));
-                    }
-                  }}
-                  min="18"
-                  max="100"
-                  className={`w-full px-4 py-3 bg-white border-2 rounded-xl text-gray-900 focus:outline-none focus:ring-2 transition-all ${
-                    shouldShowError('ageMin') || shouldShowError('ageRange')
-                      ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
-                      : 'border-gray-200 focus:ring-yellow-500 focus:border-yellow-400'
-                  }`}
-                />
-                {shouldShowError('ageMin') && (
-                  <p className="mt-1 text-xs text-red-500" role="alert" aria-live="polite">{errors.ageMin}</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-2">Maximum Age <span className="text-red-500">*</span></label>
-                <input
-                  type="number"
-                  name="preferences.ageRange.max"
-                  value={formData.preferences.ageRange.max}
-                  onChange={(e) => {
-                    handleChange(e);
-                    // Clear errors immediately when user types
-                    const numValue = parseInt(e.target.value, 10);
-                    if (!isNaN(numValue) && numValue >= 18 && numValue <= 100) {
-                      // Valid value, clear errors
-                      setErrors((prevErrors) => {
-                        const newErrors = { ...prevErrors };
-                        delete newErrors.ageMax;
-                        delete newErrors.ageRange;
-                        return newErrors;
-                      });
-                    }
-                  }}
-                  onBlur={(e) => {
-                    handleBlur('ageMax');
-                    // Ensure value is within bounds on blur
-                    const numValue = parseInt(e.target.value, 10);
-                    if (isNaN(numValue) || numValue < 18) {
-                      // Set to minimum if invalid or too low
-                      setFormData((prev) => ({
-                        ...prev,
-                        preferences: {
-                          ...prev.preferences,
-                          ageRange: {
-                            ...prev.preferences.ageRange,
-                            max: 18,
-                          },
-                        },
-                      }));
-                    } else if (numValue > 100) {
-                      // Set to maximum if too high
-                      setFormData((prev) => ({
-                        ...prev,
-                        preferences: {
-                          ...prev.preferences,
-                          ageRange: {
-                            ...prev.preferences.ageRange,
-                            max: 100,
-                          },
-                        },
-                      }));
-                    }
-                  }}
-                  min="18"
-                  max="100"
-                  className={`w-full px-4 py-3 bg-white border-2 rounded-xl text-gray-900 focus:outline-none focus:ring-2 transition-all ${
-                    shouldShowError('ageMax') || shouldShowError('ageRange')
-                      ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
-                      : 'border-gray-200 focus:ring-yellow-500 focus:border-yellow-400'
-                  }`}
-                />
-                {shouldShowError('ageMax') && (
-                  <p className="mt-1 text-xs text-red-500" role="alert" aria-live="polite">{errors.ageMax}</p>
-                )}
-              </div>
-            </div>
-            {shouldShowError('ageRange') && (
-              <p className="mt-2 text-sm text-red-500" role="alert" aria-live="polite">{errors.ageRange}</p>
-            )}
-          </div>
-
-          {/* Distance */}
-          <div>
-            <label htmlFor="distance" className="block text-sm font-medium text-gray-700 mb-2">
-              Maximum Distance: {formData.preferences.distance} km <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="range"
-              id="distance"
-              name="preferences.distance"
-              value={formData.preferences.distance}
-              onChange={(e) => {
-                handleChange(e);
-                if (errors.distance) {
-                  setErrors({ ...errors, distance: null });
-                }
-              }}
-              onBlur={() => handleBlur('distance')}
-              min="1"
-              max="500"
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-yellow-500"
-            />
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
-              <span>1 km</span>
-              <span>500 km</span>
-            </div>
-            {shouldShowError('distance') && (
-              <p className="mt-1 text-sm text-red-500" role="alert" aria-live="polite">{errors.distance}</p>
-            )}
-          </div>
-
-              {/* Gender Preference */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Looking For <span className="text-red-500">*</span>
-                </label>
-                <div className="flex flex-wrap gap-3">
-                  {['all', 'male', 'female', 'other'].map((gender) => (
-                    <motion.button
-                      key={gender}
-                      type="button"
-                      onClick={() => {
-                        setFormData({
-                          ...formData,
-                          preferences: { ...formData.preferences, gender }
-                        });
-                        if (errors.genderPreference) {
-                          setErrors({ ...errors, genderPreference: null });
-                        }
-                        // Mark as touched when user selects
-                        setTouched(prev => ({ ...prev, genderPreference: true }));
-                      }}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      className={`px-6 py-3 rounded-xl font-medium transition-all ${
-                        formData.preferences.gender === gender
-                          ? 'bg-yellow-500 text-black shadow-md hover:bg-yellow-600'
-                          : 'bg-white text-gray-700 hover:bg-yellow-50 border-2 border-gray-200 hover:border-yellow-300'
-                      }`}
-                    >
-                      {gender === 'all' ? 'Everyone' : gender.charAt(0).toUpperCase() + gender.slice(1)}
-                    </motion.button>
-                  ))}
-                </div>
-                {shouldShowError('genderPreference') && (
-                  <p className="mt-2 text-sm text-red-500" role="alert" aria-live="polite">{errors.genderPreference}</p>
-                )}
-              </div>
-
-              {/* Relationship Goals */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Relationship Goals
-                </label>
-                {loadingGoals ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-yellow-500"></div>
-                    <span className="ml-2 text-gray-600">Loading goals...</span>
-                  </div>
-                ) : relationGoals.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <p>No relationship goals available. Please contact admin to add goals.</p>
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap gap-3">
-                    {relationGoals.map((goal) => {
-                      const isSelected = formData.preferences.goals.includes(goal);
-                      return (
-                        <motion.button
-                          key={goal}
-                          type="button"
-                          onClick={() => handleGoalToggle(goal)}
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                            isSelected
-                              ? 'bg-yellow-500 text-black shadow-md hover:bg-yellow-600'
-                              : 'bg-white text-gray-700 hover:bg-yellow-50 border-2 border-gray-200 hover:border-yellow-300'
-                          }`}
-                        >
-                          {goal} {isSelected && <CheckCircleIcon className="w-4 h-4 inline-block ml-2" />}
-                        </motion.button>
-                      );
-                    })}
-                  </div>
-                )}
-                {formData.preferences.goals.length > 0 && (
-                  <p className="mt-2 text-xs text-gray-500">
-                    Selected: {formData.preferences.goals.join(', ')}
-                  </p>
-                )}
-              </div>
-            </div>
-          </motion.div>
-
-      {/* Photo Verification Section */}
-      {!isPhotoVerified && (
+        {/* Photos Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="bg-gradient-to-r from-yellow-50 via-yellow-50/50 to-white rounded-3xl shadow-xl p-6 border-2 border-yellow-200 hover:shadow-2xl transition-shadow duration-300"
+          className="bg-white rounded-3xl shadow-xl p-6 border border-gray-100 hover:shadow-2xl transition-shadow duration-300"
         >
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <h3 className="text-lg font-bold text-black mb-2 flex items-center gap-2">
-                <div className="p-2 bg-yellow-100 rounded-xl">
-                  <ShieldCheckIcon className="w-5 h-5 text-yellow-600" />
-                </div>
-                Photo Verification
-              </h3>
-              <p className="text-sm text-gray-600">
-                {photoVerificationStatus === 'pending'
-                  ? 'Your verification is pending review'
-                  : 'Verify your profile photo to increase trust and get more matches'}
-              </p>
-            </div>
-            {photoVerificationStatus === 'pending' && (
-              <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full">
-                Pending
-              </span>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-bold text-black flex items-center gap-2">
+              <div className="p-2 bg-yellow-100 rounded-xl">
+                <PhotoIcon className="w-6 h-6 text-yellow-600" />
+              </div>
+              Photos ({photos.length}/6) <span className="text-red-500">*</span>
+            </h3>
+            {photos.length < 6 && (
+              <span className="text-sm text-gray-500 bg-yellow-50 px-3 py-1 rounded-full">Add up to 6 photos</span>
             )}
           </div>
-          {photoVerificationStatus !== 'pending' && (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Upload Verification Photo
-                </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setVerificationFile(e.target.files[0])}
-                  className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-400"
-                />
-                {verificationFile && (
-                  <div className="mt-2 flex items-center gap-2 text-sm text-gray-600">
-                    <CheckCircleIcon className="w-5 h-5 text-green-500" />
-                    <span>{verificationFile.name}</span>
-                    <button
-                      type="button"
-                      onClick={() => setVerificationFile(null)}
-                      className="ml-auto text-red-500 hover:text-red-600"
-                    >
-                      <XMarkIcon className="w-5 h-5" />
-                    </button>
-                  </div>
-                )}
-              </div>
-              <motion.button
-                type="button"
-                onClick={handleVerificationSubmit}
-                disabled={!verificationFile || submittingVerification}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="w-full px-6 py-3 bg-yellow-500 text-black font-bold rounded-xl shadow-md hover:bg-yellow-600 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all"
-              >
-                {submittingVerification ? (
-                  <>
-                    <LoadingSpinner size="sm" />
-                    <span>Submitting...</span>
-                  </>
-                ) : (
-                  <>
-                    <ShieldCheckIcon className="w-5 h-5" />
-                    <span>Submit for Verification</span>
-                  </>
-                )}
-              </motion.button>
+          <PhotoUpload
+            photos={photos}
+            onUpload={handlePhotoUpload}
+            onDelete={handlePhotoDelete}
+            onPrivacyChange={handlePhotoPrivacyChange}
+          />
+          {shouldShowError('photos') && (
+            <p className="mt-2 text-sm text-red-500" role="alert" aria-live="polite">{errors.photos}</p>
+          )}
+          {uploading && (
+            <div className="mt-4 flex items-center gap-2 text-yellow-600">
+              <LoadingSpinner size="sm" />
+              <span className="text-sm font-medium">Uploading...</span>
             </div>
           )}
         </motion.div>
-      )}
 
-      {/* Save Button */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6 }}
-        className="sticky bottom-4 z-10"
-      >
-        <motion.button
-          type="submit"
-          disabled={loading || (isSubmitted && Object.keys(validationErrors).length > 0)}
-          whileHover={!loading && (!isSubmitted || Object.keys(validationErrors).length === 0) ? { scale: 1.02, y: -2 } : {}}
-          whileTap={!loading && (!isSubmitted || Object.keys(validationErrors).length === 0) ? { scale: 0.98 } : {}}
-          className={`w-full px-8 py-4 bg-gradient-to-r from-yellow-500 via-yellow-400 to-yellow-500 text-black font-bold text-lg rounded-2xl shadow-xl flex items-center justify-center gap-3 transition-all ${
-            loading || (isSubmitted && Object.keys(validationErrors).length > 0)
+        {/* Video Upload Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700"
+        >
+          <VideoUpload
+            user={user}
+            existingVideo={videoProfile}
+            onVideoUploaded={(newVideo) => {
+              setVideoProfile(newVideo);
+            }}
+          />
+        </motion.div>
+
+        {/* Bio Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-white rounded-3xl shadow-xl p-6 border border-gray-100 hover:shadow-2xl transition-shadow duration-300"
+        >
+          <label htmlFor="bio" className="block text-lg font-bold text-black mb-3 flex items-center gap-2">
+            <div className="p-2 bg-yellow-100 rounded-xl">
+              <UserIcon className="w-5 h-5 text-yellow-600" />
+            </div>
+            About Me <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            id="bio"
+            name="bio"
+            value={formData.bio}
+            onChange={(e) => {
+              handleChange(e);
+              if (errors.bio) {
+                setErrors({ ...errors, bio: null });
+              }
+            }}
+            onBlur={() => handleBlur('bio')}
+            maxLength={MAX_BIO_LENGTH}
+            rows={6}
+            className={`w-full px-4 py-3 bg-gray-50 border-2 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 resize-none transition-all ${shouldShowError('bio')
+              ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
+              : 'border-gray-200 focus:ring-yellow-500 focus:border-yellow-400'
+              }`}
+            placeholder="Tell people about yourself, your interests, what you're looking for..."
+          />
+          <div className="flex items-center justify-between mt-2">
+            <div>
+              <p className="text-xs text-gray-500">
+                {formData.bio.length}/{MAX_BIO_LENGTH} characters
+              </p>
+              {shouldShowError('bio') && (
+                <p className="text-sm text-red-500 mt-1" role="alert" aria-live="polite">{errors.bio}</p>
+              )}
+            </div>
+            {formData.bio.length > 0 && (
+              <motion.button
+                type="button"
+                onClick={() => {
+                  setFormData({ ...formData, bio: '' });
+                  setErrors({ ...errors, bio: null });
+                }}
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                className="text-xs text-red-500 hover:text-red-600"
+              >
+                Clear
+              </motion.button>
+            )}
+          </div>
+        </motion.div>
+
+        {/* Looking For Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="bg-white rounded-3xl shadow-xl p-6 border border-gray-100 hover:shadow-2xl transition-shadow duration-300"
+        >
+          <label htmlFor="lookingFor" className="block text-lg font-bold text-black mb-3 flex items-center gap-2">
+            <div className="p-2 bg-yellow-100 rounded-xl">
+              <HeartIcon className="w-5 h-5 text-yellow-600" />
+            </div>
+            What I'm Looking For
+          </label>
+          <textarea
+            id="lookingFor"
+            name="lookingFor"
+            value={formData.lookingFor}
+            onChange={handleChange}
+            maxLength={MAX_LOOKING_FOR_LENGTH}
+            rows={3}
+            className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-400 resize-none transition-all"
+            placeholder="Describe what you're looking for in a partner or relationship..."
+          />
+          <p className="text-xs text-gray-500 mt-2">
+            {formData.lookingFor.length}/{MAX_LOOKING_FOR_LENGTH} characters
+          </p>
+        </motion.div>
+
+        {/* Gender Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.16 }}
+          className="bg-white rounded-3xl shadow-xl p-6 border border-gray-100 hover:shadow-2xl transition-shadow duration-300"
+        >
+          <label htmlFor="gender" className="block text-lg font-bold text-black mb-3 flex items-center gap-2">
+            <div className="p-2 bg-yellow-100 rounded-xl">
+              <UserIcon className="w-5 h-5 text-yellow-600" />
+            </div>
+            Gender <span className="text-red-500">*</span>
+          </label>
+          <select
+            id="gender"
+            name="gender"
+            value={formData.gender}
+            onChange={(e) => {
+              handleChange(e);
+              if (errors.gender) {
+                setErrors({ ...errors, gender: null });
+              }
+            }}
+            onBlur={() => handleBlur('gender')}
+            required
+            className={`w-full px-4 py-3 bg-gray-50 border-2 rounded-xl text-gray-900 focus:outline-none focus:ring-2 transition-all ${shouldShowError('gender')
+              ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
+              : 'border-gray-200 focus:ring-yellow-500 focus:border-yellow-400'
+              }`}
+          >
+            <option value="">Select your gender</option>
+            {GENDERS.map((gender) => (
+              <option key={gender} value={gender}>
+                {gender.charAt(0).toUpperCase() + gender.slice(1)}
+              </option>
+            ))}
+          </select>
+          {shouldShowError('gender') && (
+            <p className="mt-1 text-sm text-red-500" role="alert" aria-live="polite">{errors.gender}</p>
+          )}
+        </motion.div>
+
+        {/* Marital Status Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.17 }}
+          className="bg-white rounded-3xl shadow-xl p-6 border border-gray-100 hover:shadow-2xl transition-shadow duration-300"
+        >
+          <label htmlFor="maritalStatus" className="block text-lg font-bold text-black mb-3 flex items-center gap-2">
+            <div className="p-2 bg-yellow-100 rounded-xl">
+              <UserIcon className="w-5 h-5 text-yellow-600" />
+            </div>
+            Marital Status
+          </label>
+          <select
+            id="maritalStatus"
+            name="maritalStatus"
+            value={formData.maritalStatus}
+            onChange={handleChange}
+            className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-400 transition-all"
+          >
+            <option value="">Select marital status</option>
+            {MARITAL_STATUSES.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+          </select>
+        </motion.div>
+
+        {/* Religion Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.18 }}
+          className="bg-white rounded-3xl shadow-xl p-6 border border-gray-100 hover:shadow-2xl transition-shadow duration-300"
+        >
+          <label htmlFor="religion" className="block text-lg font-bold text-black mb-3 flex items-center gap-2">
+            <div className="p-2 bg-yellow-100 rounded-xl">
+              <UserIcon className="w-5 h-5 text-yellow-600" />
+            </div>
+            Religion
+          </label>
+          {loadingReligions ? (
+            <div className="flex items-center justify-center py-4">
+              <div className="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-yellow-500"></div>
+              <span className="ml-2 text-gray-600 text-sm">Loading religions...</span>
+            </div>
+          ) : (
+            <select
+              id="religion"
+              name="religion"
+              value={formData.religion}
+              onChange={handleChange}
+              className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-400 transition-all"
+            >
+              <option value="">Select religion</option>
+              {religions.map((religion) => (
+                <option key={religion} value={religion}>
+                  {religion}
+                </option>
+              ))}
+            </select>
+          )}
+          {religions.length === 0 && !loadingReligions && (
+            <p className="text-xs text-gray-500 mt-2">No religions available. Please contact admin to add religions.</p>
+          )}
+        </motion.div>
+
+        {/* Interests Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-white rounded-3xl shadow-xl p-6 border border-gray-100 hover:shadow-2xl transition-shadow duration-300"
+        >
+          <label className="block text-lg font-bold text-black mb-4 flex items-center gap-2">
+            <div className="p-2 bg-yellow-100 rounded-xl">
+              <HeartIcon className="w-5 h-5 text-yellow-600" />
+            </div>
+            Interests ({formData.interests.length}) <span className="text-red-500">*</span>
+          </label>
+          {loadingInterests ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-yellow-500"></div>
+              <span className="ml-2 text-gray-600">Loading interests...</span>
+            </div>
+          ) : interests.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <p>No interests available. Please contact admin to add interests.</p>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-3">
+              {interests.map((interest) => {
+                const isSelected = formData.interests.includes(interest);
+                return (
+                  <motion.button
+                    key={interest}
+                    type="button"
+                    onClick={() => {
+                      handleInterestToggle(interest);
+                      if (errors.interests) {
+                        setErrors({ ...errors, interests: null });
+                      }
+                    }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${isSelected
+                      ? 'bg-yellow-500 text-black shadow-md hover:bg-yellow-600'
+                      : 'bg-gray-100 text-gray-700 hover:bg-yellow-50 hover:border-yellow-300 border border-transparent'
+                      }`}
+                  >
+                    {interest}
+                    {isSelected && (
+                      <CheckCircleIcon className="w-4 h-4 inline-block ml-2" />
+                    )}
+                  </motion.button>
+                );
+              })}
+            </div>
+          )}
+          {shouldShowError('interests') && (
+            <p className="mt-2 text-sm text-red-500" role="alert" aria-live="polite">{errors.interests}</p>
+          )}
+        </motion.div>
+
+        {/* Location Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-white rounded-3xl shadow-xl p-6 border border-gray-100 hover:shadow-2xl transition-shadow duration-300"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <label className="block text-lg font-bold text-black flex items-center gap-2">
+              <div className="p-2 bg-yellow-100 rounded-xl">
+                <MapPinIcon className="w-5 h-5 text-yellow-600" />
+              </div>
+              Location <span className="text-red-500">*</span>
+            </label>
+            <motion.button
+              type="button"
+              onClick={handleGetCurrentLocation}
+              disabled={gettingLocation}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black text-sm font-medium rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 shadow-md"
+            >
+              {gettingLocation ? (
+                <>
+                  <LoadingSpinner size="sm" />
+                  <span>Getting Location...</span>
+                </>
+              ) : (
+                <>
+                  <MapPinIcon className="w-4 h-4" />
+                  <span>Use Current Location</span>
+                </>
+              )}
+            </motion.button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-2">
+                City <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="city"
+                name="location.city"
+                value={formData.location.city || ''}
+                onChange={(e) => {
+                  handleChange(e);
+                  if (errors.city) {
+                    setErrors({ ...errors, city: null });
+                  }
+                }}
+                onBlur={() => handleBlur('city')}
+                className={`w-full px-4 py-3 bg-gray-50 border-2 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition-all ${shouldShowError('city')
+                  ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
+                  : 'border-gray-200 focus:ring-yellow-500 focus:border-yellow-400'
+                  }`}
+                placeholder="Enter your city"
+              />
+              {shouldShowError('city') && (
+                <p className="mt-1 text-sm text-red-500" role="alert" aria-live="polite">{errors.city}</p>
+              )}
+            </div>
+            <div>
+              <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-2">
+                Country <span className="text-red-500">*</span>
+              </label>
+              {loadingCountries ? (
+                <div className="flex items-center gap-2 px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl">
+                  <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-500"></div>
+                  <span className="text-sm text-gray-600">Loading countries...</span>
+                </div>
+              ) : (
+                <select
+                  id="country"
+                  name="location.country"
+                  value={formData.location.country || ''}
+                  onChange={(e) => {
+                    handleChange(e);
+                    if (errors.country) {
+                      setErrors({ ...errors, country: null });
+                    }
+                  }}
+                  onBlur={() => handleBlur('country')}
+                  className={`w-full px-4 py-3 bg-gray-50 border-2 rounded-xl text-gray-900 focus:outline-none focus:ring-2 transition-all ${shouldShowError('country')
+                    ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
+                    : 'border-gray-200 focus:ring-yellow-500 focus:border-yellow-400'
+                    }`}
+                >
+                  <option value="">Select your country</option>
+                  {countries.map((country) => (
+                    <option key={country.code} value={country.name}>
+                      {country.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {shouldShowError('country') && (
+                <p className="mt-1 text-sm text-red-500" role="alert" aria-live="polite">{errors.country}</p>
+              )}
+            </div>
+            <div>
+              <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-2">
+                State <span className="text-red-500">*</span>
+              </label>
+              {loadingStates ? (
+                <div className="flex items-center gap-2 px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl">
+                  <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-500"></div>
+                  <span className="text-sm text-gray-600">Loading states...</span>
+                </div>
+              ) : !formData.location.country ? (
+                <select
+                  id="state"
+                  disabled
+                  className="w-full px-4 py-3 bg-gray-100 border-2 border-gray-200 rounded-xl text-gray-500 cursor-not-allowed"
+                >
+                  <option value="">Please select a country first</option>
+                </select>
+              ) : (
+                <select
+                  id="state"
+                  name="location.state"
+                  value={formData.location.state || ''}
+                  onChange={(e) => {
+                    handleChange(e);
+                    if (errors.state) {
+                      setErrors({ ...errors, state: null });
+                    }
+                  }}
+                  onBlur={() => handleBlur('state')}
+                  className={`w-full px-4 py-3 bg-gray-50 border-2 rounded-xl text-gray-900 focus:outline-none focus:ring-2 transition-all ${shouldShowError('state')
+                    ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
+                    : 'border-gray-200 focus:ring-yellow-500 focus:border-yellow-400'
+                    }`}
+                >
+                  <option value="">Select your state</option>
+                  {availableStates.map((state) => (
+                    <option key={state.code} value={state.name}>
+                      {state.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {shouldShowError('state') && (
+                <p className="mt-1 text-sm text-red-500" role="alert" aria-live="polite">{errors.state}</p>
+              )}
+              {formData.location.country && availableStates.length === 0 && !loadingStates && (
+                <p className="mt-1 text-xs text-gray-500">No states available for this country. Please enter manually.</p>
+              )}
+            </div>
+            <div className="md:col-span-2">
+              <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-2">
+                Address (Optional)
+              </label>
+              <input
+                id="address"
+                name="location.address"
+                value={formData.location.address || ''}
+                onChange={handleChange}
+                className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-400"
+                placeholder="Enter your address"
+              />
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Preferences Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="bg-gradient-to-br from-yellow-50 via-yellow-50/50 to-white rounded-3xl shadow-xl p-6 border-2 border-yellow-200 hover:shadow-2xl transition-shadow duration-300"
+        >
+          <label className="block text-lg font-bold text-black mb-4">Search Preferences</label>
+          <div className="space-y-4">
+            {/* Age Range */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Age Range: {formData.preferences.ageRange.min} - {formData.preferences.ageRange.max} years <span className="text-red-500">*</span>
+              </label>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-2">Minimum Age <span className="text-red-500">*</span></label>
+                  <input
+                    type="number"
+                    name="preferences.ageRange.min"
+                    value={formData.preferences.ageRange.min}
+                    onChange={(e) => {
+                      handleChange(e);
+                      // Clear errors immediately when user types
+                      const numValue = parseInt(e.target.value, 10);
+                      if (!isNaN(numValue) && numValue >= 18 && numValue <= 100) {
+                        // Valid value, clear errors
+                        setErrors((prevErrors) => {
+                          const newErrors = { ...prevErrors };
+                          delete newErrors.ageMin;
+                          delete newErrors.ageRange;
+                          return newErrors;
+                        });
+                      }
+                    }}
+                    onBlur={(e) => {
+                      handleBlur('ageMin');
+                      // Ensure value is within bounds on blur
+                      const numValue = parseInt(e.target.value, 10);
+                      if (isNaN(numValue) || numValue < 18) {
+                        // Set to minimum if invalid or too low
+                        setFormData((prev) => ({
+                          ...prev,
+                          preferences: {
+                            ...prev.preferences,
+                            ageRange: {
+                              ...prev.preferences.ageRange,
+                              min: 18,
+                            },
+                          },
+                        }));
+                      } else if (numValue > 100) {
+                        // Set to maximum if too high
+                        setFormData((prev) => ({
+                          ...prev,
+                          preferences: {
+                            ...prev.preferences,
+                            ageRange: {
+                              ...prev.preferences.ageRange,
+                              min: 100,
+                            },
+                          },
+                        }));
+                      }
+                    }}
+                    min="18"
+                    max="100"
+                    className={`w-full px-4 py-3 bg-white border-2 rounded-xl text-gray-900 focus:outline-none focus:ring-2 transition-all ${shouldShowError('ageMin') || shouldShowError('ageRange')
+                      ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
+                      : 'border-gray-200 focus:ring-yellow-500 focus:border-yellow-400'
+                      }`}
+                  />
+                  {shouldShowError('ageMin') && (
+                    <p className="mt-1 text-xs text-red-500" role="alert" aria-live="polite">{errors.ageMin}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-2">Maximum Age <span className="text-red-500">*</span></label>
+                  <input
+                    type="number"
+                    name="preferences.ageRange.max"
+                    value={formData.preferences.ageRange.max}
+                    onChange={(e) => {
+                      handleChange(e);
+                      // Clear errors immediately when user types
+                      const numValue = parseInt(e.target.value, 10);
+                      if (!isNaN(numValue) && numValue >= 18 && numValue <= 100) {
+                        // Valid value, clear errors
+                        setErrors((prevErrors) => {
+                          const newErrors = { ...prevErrors };
+                          delete newErrors.ageMax;
+                          delete newErrors.ageRange;
+                          return newErrors;
+                        });
+                      }
+                    }}
+                    onBlur={(e) => {
+                      handleBlur('ageMax');
+                      // Ensure value is within bounds on blur
+                      const numValue = parseInt(e.target.value, 10);
+                      if (isNaN(numValue) || numValue < 18) {
+                        // Set to minimum if invalid or too low
+                        setFormData((prev) => ({
+                          ...prev,
+                          preferences: {
+                            ...prev.preferences,
+                            ageRange: {
+                              ...prev.preferences.ageRange,
+                              max: 18,
+                            },
+                          },
+                        }));
+                      } else if (numValue > 100) {
+                        // Set to maximum if too high
+                        setFormData((prev) => ({
+                          ...prev,
+                          preferences: {
+                            ...prev.preferences,
+                            ageRange: {
+                              ...prev.preferences.ageRange,
+                              max: 100,
+                            },
+                          },
+                        }));
+                      }
+                    }}
+                    min="18"
+                    max="100"
+                    className={`w-full px-4 py-3 bg-white border-2 rounded-xl text-gray-900 focus:outline-none focus:ring-2 transition-all ${shouldShowError('ageMax') || shouldShowError('ageRange')
+                      ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
+                      : 'border-gray-200 focus:ring-yellow-500 focus:border-yellow-400'
+                      }`}
+                  />
+                  {shouldShowError('ageMax') && (
+                    <p className="mt-1 text-xs text-red-500" role="alert" aria-live="polite">{errors.ageMax}</p>
+                  )}
+                </div>
+              </div>
+              {shouldShowError('ageRange') && (
+                <p className="mt-2 text-sm text-red-500" role="alert" aria-live="polite">{errors.ageRange}</p>
+              )}
+            </div>
+
+            {/* Distance */}
+            <div>
+              <label htmlFor="distance" className="block text-sm font-medium text-gray-700 mb-2">
+                Maximum Distance: {formData.preferences.distance} km <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="range"
+                id="distance"
+                name="preferences.distance"
+                value={formData.preferences.distance}
+                onChange={(e) => {
+                  handleChange(e);
+                  if (errors.distance) {
+                    setErrors({ ...errors, distance: null });
+                  }
+                }}
+                onBlur={() => handleBlur('distance')}
+                min="1"
+                max="500"
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-yellow-500"
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>1 km</span>
+                <span>500 km</span>
+              </div>
+              {shouldShowError('distance') && (
+                <p className="mt-1 text-sm text-red-500" role="alert" aria-live="polite">{errors.distance}</p>
+              )}
+            </div>
+
+            {/* Gender Preference */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Looking For <span className="text-red-500">*</span>
+              </label>
+              <div className="flex flex-wrap gap-3">
+                {['all', 'male', 'female', 'other'].map((gender) => (
+                  <motion.button
+                    key={gender}
+                    type="button"
+                    onClick={() => {
+                      setFormData({
+                        ...formData,
+                        preferences: { ...formData.preferences, gender }
+                      });
+                      if (errors.genderPreference) {
+                        setErrors({ ...errors, genderPreference: null });
+                      }
+                      // Mark as touched when user selects
+                      setTouched(prev => ({ ...prev, genderPreference: true }));
+                    }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className={`px-6 py-3 rounded-xl font-medium transition-all ${formData.preferences.gender === gender
+                      ? 'bg-yellow-500 text-black shadow-md hover:bg-yellow-600'
+                      : 'bg-white text-gray-700 hover:bg-yellow-50 border-2 border-gray-200 hover:border-yellow-300'
+                      }`}
+                  >
+                    {gender === 'all' ? 'Everyone' : gender.charAt(0).toUpperCase() + gender.slice(1)}
+                  </motion.button>
+                ))}
+              </div>
+              {shouldShowError('genderPreference') && (
+                <p className="mt-2 text-sm text-red-500" role="alert" aria-live="polite">{errors.genderPreference}</p>
+              )}
+            </div>
+
+            {/* Relationship Goals */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Relationship Goals
+              </label>
+              {loadingGoals ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-yellow-500"></div>
+                  <span className="ml-2 text-gray-600">Loading goals...</span>
+                </div>
+              ) : relationGoals.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No relationship goals available. Please contact admin to add goals.</p>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-3">
+                  {relationGoals.map((goal) => {
+                    const isSelected = formData.preferences.goals.includes(goal);
+                    return (
+                      <motion.button
+                        key={goal}
+                        type="button"
+                        onClick={() => handleGoalToggle(goal)}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${isSelected
+                          ? 'bg-yellow-500 text-black shadow-md hover:bg-yellow-600'
+                          : 'bg-white text-gray-700 hover:bg-yellow-50 border-2 border-gray-200 hover:border-yellow-300'
+                          }`}
+                      >
+                        {goal} {isSelected && <CheckCircleIcon className="w-4 h-4 inline-block ml-2" />}
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              )}
+              {formData.preferences.goals.length > 0 && (
+                <p className="mt-2 text-xs text-gray-500">
+                  Selected: {formData.preferences.goals.join(', ')}
+                </p>
+              )}
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Photo Verification Section */}
+        {!isPhotoVerified && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="bg-gradient-to-r from-yellow-50 via-yellow-50/50 to-white rounded-3xl shadow-xl p-6 border-2 border-yellow-200 hover:shadow-2xl transition-shadow duration-300"
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-black mb-2 flex items-center gap-2">
+                  <div className="p-2 bg-yellow-100 rounded-xl">
+                    <ShieldCheckIcon className="w-5 h-5 text-yellow-600" />
+                  </div>
+                  Photo Verification
+                </h3>
+                <p className="text-sm text-gray-600">
+                  {photoVerificationStatus === 'pending'
+                    ? 'Your verification is pending review'
+                    : 'Verify your profile photo to increase trust and get more matches'}
+                </p>
+              </div>
+              {photoVerificationStatus === 'pending' && (
+                <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full">
+                  Pending
+                </span>
+              )}
+            </div>
+
+            {photoVerificationStatus !== 'pending' && (
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowCameraVerification(true)}
+                  className="px-6 py-2.5 bg-yellow-500 text-black font-semibold rounded-xl hover:bg-yellow-600 transition-colors shadow-md flex items-center gap-2"
+                >
+                  <CameraIcon className="w-5 h-5" />
+                  Verify Now
+                </button>
+              </div>
+            )}
+
+            {showCameraVerification && (
+              <CameraVerification
+                isPending={photoVerificationStatus === 'pending'}
+                onSuccess={() => {
+                  // Redirect to home page on success
+                  toast.success('Verification submitted successfully!');
+                  setTimeout(() => {
+                    navigate('/');
+                  }, 1500);
+                }}
+                onCancel={() => setShowCameraVerification(false)}
+              />
+            )}
+          </motion.div>
+        )}
+
+        {/* Save Button */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+          className="sticky bottom-4 z-10"
+        >
+          <motion.button
+            type="submit"
+            disabled={loading || (isSubmitted && Object.keys(validationErrors).length > 0)}
+            whileHover={!loading && (!isSubmitted || Object.keys(validationErrors).length === 0) ? { scale: 1.02, y: -2 } : {}}
+            whileTap={!loading && (!isSubmitted || Object.keys(validationErrors).length === 0) ? { scale: 0.98 } : {}}
+            className={`w-full px-8 py-4 bg-gradient-to-r from-yellow-500 via-yellow-400 to-yellow-500 text-black font-bold text-lg rounded-2xl shadow-xl flex items-center justify-center gap-3 transition-all ${loading || (isSubmitted && Object.keys(validationErrors).length > 0)
               ? 'opacity-50 cursor-not-allowed'
               : 'hover:shadow-2xl hover:from-yellow-600 hover:via-yellow-500 hover:to-yellow-600'
-          }`}
-        >
-          {loading ? (
-            <>
-              <LoadingSpinner size="sm" />
-              <span>Saving...</span>
-            </>
-          ) : (
-            <>
-              <CheckCircleIcon className="w-6 h-6" />
-              <span>Save Changes</span>
-            </>
-          )}
-        </motion.button>
-      </motion.div>
-    </form>
+              }`}
+          >
+            {loading ? (
+              <>
+                <LoadingSpinner size="sm" />
+                <span>Saving...</span>
+              </>
+            ) : (
+              <>
+                <CheckCircleIcon className="w-6 h-6" />
+                <span>Save Changes</span>
+              </>
+            )}
+          </motion.button>
+        </motion.div>
+      </form>
     </div>
   );
 }

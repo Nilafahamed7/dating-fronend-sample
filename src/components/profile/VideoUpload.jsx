@@ -25,13 +25,13 @@ export default function VideoUpload({ user, onVideoUploaded, existingVideo }) {
   const fileInputRef = useRef(null);
   const videoRef = useRef(null);
 
-  // Only show upload UI for premium users or female users (female users can upload for free)
+  // Check if user is allowed to upload (Premium users or Females)
   const isFemale = user?.gender?.toLowerCase() === 'female';
-  if (!user?.isPremium && !isFemale) {
-    return null;
-  }
+  const canUpload = user?.isPremium || isFemale;
 
   const handleFileSelect = (file) => {
+    if (!canUpload) return;
+
     // Validate file type
     if (!ALLOWED_FORMATS.includes(file.type)) {
       toast.error('Only MP4, MOV, or WebM video files are allowed');
@@ -69,6 +69,8 @@ export default function VideoUpload({ user, onVideoUploaded, existingVideo }) {
   const handleDrag = (e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!canUpload) return;
+
     if (e.type === 'dragenter' || e.type === 'dragover') {
       setDragActive(true);
     } else if (e.type === 'dragleave') {
@@ -80,6 +82,7 @@ export default function VideoUpload({ user, onVideoUploaded, existingVideo }) {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
+    if (!canUpload) return;
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       handleFileSelect(e.dataTransfer.files[0]);
@@ -215,7 +218,9 @@ export default function VideoUpload({ user, onVideoUploaded, existingVideo }) {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-            <VideoCameraIcon className="w-6 h-6" />
+            <div className="p-2 bg-yellow-100 rounded-lg">
+              <VideoCameraIcon className="w-6 h-6 text-yellow-600" />
+            </div>
             Profile Video
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -227,7 +232,7 @@ export default function VideoUpload({ user, onVideoUploaded, existingVideo }) {
 
       {/* Existing Video Display */}
       {existingVideo && existingVideo.videoUrl && !videoFile && (
-        <div className="relative rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
+        <div className="relative rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 border border-gray-200">
           <video
             ref={videoRef}
             src={existingVideo.videoUrl}
@@ -238,7 +243,7 @@ export default function VideoUpload({ user, onVideoUploaded, existingVideo }) {
           <div className="absolute top-2 right-2">
             <button
               onClick={handleDelete}
-              className="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+              className="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors shadow-lg"
             >
               <XMarkIcon className="w-5 h-5" />
             </button>
@@ -248,99 +253,123 @@ export default function VideoUpload({ user, onVideoUploaded, existingVideo }) {
 
       {/* Upload Area */}
       {!existingVideo?.videoUrl && (
-        <div
-          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-            dragActive
-              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-              : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800'
-          }`}
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
-        >
-          {!videoFile ? (
-            <>
-              <VideoCameraIcon className="w-12 h-12 mx-auto text-gray-400 dark:text-gray-500 mb-4" />
-              <p className="text-gray-600 dark:text-gray-400 mb-2">
-                Drag and drop a video here, or click to select
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-500 mb-4">
-                MP4, MOV, or WebM • Max {MAX_DURATION}s • Max {MAX_FILE_SIZE / (1024 * 1024)}MB
-              </p>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Select Video
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="video/mp4,video/quicktime,video/mov,video/webm"
-                onChange={handleFileInputChange}
-                className="hidden"
-              />
-            </>
-          ) : (
-            <div className="space-y-4">
-              <div className="relative rounded-lg overflow-hidden bg-gray-900">
-                <video
-                  src={previewUrl}
-                  className="w-full h-auto max-h-64"
-                  controls
-                />
-                <button
-                  onClick={handleRemove}
-                  className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
-                >
-                  <XMarkIcon className="w-5 h-5" />
-                </button>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Caption (optional)
-                </label>
-                <input
-                  type="text"
-                  value={caption}
-                  onChange={(e) => setCaption(e.target.value)}
-                  maxLength={200}
-                  placeholder="Add a caption to your video..."
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                />
-                <p className="text-xs text-gray-500 mt-1">{caption.length}/200</p>
-              </div>
-              {uploading ? (
-                <div className="space-y-2">
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                    <div
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${uploadProgress}%` }}
-                    />
+        <>
+          {canUpload ? (
+            <div
+              className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300 ${dragActive
+                  ? 'border-yellow-500 bg-yellow-50 scale-[1.02]'
+                  : 'border-yellow-200 bg-yellow-50/30 hover:border-yellow-400 hover:bg-yellow-50'
+                }`}
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+            >
+              {!videoFile ? (
+                <>
+                  <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <VideoCameraIcon className="w-8 h-8 text-yellow-600" />
                   </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Uploading... {uploadProgress}%
+                  <p className="text-gray-900 font-medium mb-2">
+                    Drag and drop a video here, or click to select
                   </p>
-                </div>
+                  <p className="text-sm text-gray-500 mb-6">
+                    MP4, MOV, or WebM • Max {MAX_DURATION}s • Max {MAX_FILE_SIZE / (1024 * 1024)}MB
+                  </p>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-6 py-2.5 bg-yellow-500 text-black font-semibold rounded-xl hover:bg-yellow-600 transition-colors shadow-md hover:shadow-lg"
+                  >
+                    Select Video
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="video/mp4,video/quicktime,video/mov,video/webm"
+                    onChange={handleFileInputChange}
+                    className="hidden"
+                  />
+                </>
               ) : (
-                <button
-                  onClick={handleUpload}
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-                >
-                  <VideoCameraIcon className="w-5 h-5" />
-                  Upload Video
-                </button>
+                <div className="space-y-4">
+                  <div className="relative rounded-xl overflow-hidden bg-black shadow-lg">
+                    <video
+                      src={previewUrl}
+                      className="w-full h-auto max-h-64"
+                      controls
+                    />
+                    <button
+                      onClick={handleRemove}
+                      className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors shadow-lg"
+                    >
+                      <XMarkIcon className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2 text-left">
+                      Caption (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={caption}
+                      onChange={(e) => setCaption(e.target.value)}
+                      maxLength={200}
+                      placeholder="Add a caption to your video..."
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-all"
+                    />
+                    <p className="text-xs text-gray-500 mt-1 text-right">{caption.length}/200</p>
+                  </div>
+                  {uploading ? (
+                    <div className="space-y-2">
+                      <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                        <div
+                          className="bg-yellow-500 h-2.5 rounded-full transition-all duration-300"
+                          style={{ width: `${uploadProgress}%` }}
+                        />
+                      </div>
+                      <p className="text-sm text-gray-600 font-medium">
+                        Uploading... {uploadProgress}%
+                      </p>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleUpload}
+                      className="w-full px-6 py-3 bg-yellow-500 text-black font-bold rounded-xl hover:bg-yellow-600 transition-colors shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                    >
+                      <VideoCameraIcon className="w-5 h-5" />
+                      Upload Video
+                    </button>
+                  )}
+                </div>
               )}
             </div>
+          ) : (
+            <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center bg-gray-50">
+              <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                <VideoCameraIcon className="w-8 h-8 text-gray-400" />
+              </div>
+              <h4 className="text-lg font-bold text-gray-900 mb-2">Video Profile is a Premium Feature</h4>
+              <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                Upgrade to Premium to upload a profile video and stand out from the crowd!
+              </p>
+              <a
+                href="/premium"
+                className="inline-flex items-center justify-center px-6 py-2.5 bg-gradient-to-r from-yellow-500 to-yellow-600 text-black font-bold rounded-xl hover:from-yellow-600 hover:to-yellow-700 transition-all shadow-md hover:shadow-lg"
+              >
+                Upgrade to Premium
+              </a>
+            </div>
           )}
-        </div>
+        </>
       )}
 
       {/* Guidelines */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-        <p className="text-sm text-blue-800 dark:text-blue-200 font-medium mb-2">Video Guidelines:</p>
-        <ul className="text-xs text-blue-700 dark:text-blue-300 space-y-1 list-disc list-inside">
+      <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+        <p className="text-sm text-yellow-800 font-bold mb-2 flex items-center gap-2">
+          <ExclamationTriangleIcon className="w-4 h-4" />
+          Video Guidelines:
+        </p>
+        <ul className="text-xs text-yellow-700 space-y-1 list-disc list-inside ml-1">
           <li>Keep it appropriate and respectful</li>
           <li>No nudity or explicit content</li>
           <li>Show your personality and interests</li>
@@ -350,4 +379,7 @@ export default function VideoUpload({ user, onVideoUploaded, existingVideo }) {
     </div>
   );
 }
+
+
+
 

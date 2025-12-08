@@ -1,57 +1,55 @@
 /**
- * Validate phone number format
+ * Validates a phone number format
  * @param {string} phone - Phone number to validate
- * @returns {{valid: boolean, error?: string}}
+ * @returns {Object} { valid: boolean, error: string|null }
  */
 export const validatePhoneNumber = (phone) => {
-  if (!phone || typeof phone !== 'string') {
-    return { valid: false, error: 'Phone number is required' };
-  }
+    if (!phone) {
+        return { valid: true, error: null }; // Optional field
+    }
 
-  const trimmed = phone.trim();
-  
-  // Must start with +
-  if (!trimmed.startsWith('+')) {
-    return { valid: false, error: 'Phone number must include country code (e.g., +1234567890)' };
-  }
+    // Basic regex for international phone numbers
+    // Allows +, spaces, dashes, parentheses, and digits
+    // Min length 7, max length 15 (E.164 standard is max 15)
+    const phoneRegex = /^\+?[0-9\s\-()]{7,20}$/;
 
-  // E.164 format: + followed by 1-15 digits
-  const e164Pattern = /^\+[1-9]\d{1,14}$/;
-  if (!e164Pattern.test(trimmed)) {
-    return { valid: false, error: 'Invalid phone number format. Must be in E.164 format (e.g., +1234567890)' };
-  }
+    if (!phoneRegex.test(phone)) {
+        return {
+            valid: false,
+            error: 'Invalid phone number format. Please include country code (e.g., +1)'
+        };
+    }
 
-  return { valid: true };
+    // Check for at least 7 digits
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length < 7) {
+        return {
+            valid: false,
+            error: 'Phone number is too short'
+        };
+    }
+
+    return { valid: true, error: null };
 };
 
 /**
- * Normalize phone number to E.164 format
+ * Normalizes a phone number to E.164 format (or close to it)
+ * Removes all non-numeric characters except leading +
  * @param {string} phone - Phone number to normalize
- * @returns {string} - Normalized phone number
+ * @returns {string} Normalized phone number
  */
 export const normalizePhoneNumber = (phone) => {
-  if (!phone || typeof phone !== 'string') {
-    return '';
-  }
+    if (!phone) return '';
 
-  // Remove all non-digit characters except +
-  let normalized = phone.replace(/[^\d+]/g, '');
+    // Keep only digits and leading plus sign
+    let normalized = phone.replace(/[^\d+]/g, '');
 
-  // Ensure it starts with +
-  if (!normalized.startsWith('+')) {
-    normalized = '+' + normalized;
-  }
+    // Ensure it has a leading + if it looks like it's missing one but has country code
+    // This is a heuristic and might need adjustment based on specific requirements
+    if (!normalized.startsWith('+') && normalized.length > 10) {
+        // Assume it might be missing +
+        // normalized = '+' + normalized;
+    }
 
-  // Remove leading zeros after country code
-  normalized = normalized.replace(/^\+0+/, '+');
-
-  return normalized;
+    return normalized;
 };
-
-
-
-
-
-
-
-

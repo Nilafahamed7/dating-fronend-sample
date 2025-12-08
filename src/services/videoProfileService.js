@@ -34,5 +34,10 @@ export const videoProfileService = {
     const response = await api.delete(`/video-profiles/${videoId}`);
     return response.data;
   },
-};
 
+  // Unlock video profile (deduct coins)
+  unlockVideo: async (videoId) => {
+    const response = await api.post(`/video-profiles/${videoId}/unlock`);
+    return response.data;
+  },
+};

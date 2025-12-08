@@ -672,32 +672,37 @@ export default function ProfileLeftSidebar({ isOpen, onClose }) {
                     {user?.name?.charAt(0)?.toUpperCase() || 'U'}
                   </div>
                 )}
-
-                {/* Crown Icon for Premium - Attached to top-right of image */}
-                {user?.isPremium && (
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="absolute top-0 right-0 bg-velora-primary rounded-full p-1.5 shadow-lg z-20 transform translate-x-1/4 -translate-y-1/4"
-                    style={{ border: '2px solid white' }}
-                  >
-                    <svg
-                      className="w-5 h-5 text-black"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
-                    </svg>
-                  </motion.div>
-                )}
               </div>
 
-              {/* Profile Completeness Badge - Attached below avatar */}
+              {/* Crown Icon for Premium - Outside circle but touching it */}
+              {user?.isPremium && (
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="absolute bg-velora-primary rounded-full p-1.5 shadow-lg z-20"
+                  style={{ 
+                    border: '2px solid white',
+                    top: '-6px', // Position above the circle
+                    right: 'calc(50% - 40px - 12px)' // Position to the right of circle edge (40px = half of 80px circle, 12px = half of ~24px icon)
+                  }}
+                >
+                  <svg
+                    className="w-5 h-5 text-black"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
+                  </svg>
+                </motion.div>
+              )}
+
+              {/* Profile Completeness Badge - Touching bottom of circle */}
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                className="mt-2 bg-velora-primary text-black text-xs font-bold px-3 py-1 rounded-full shadow-lg border-2 border-white z-10 relative"
+                className="bg-velora-primary text-black text-xs font-bold px-3 py-1 rounded-full shadow-lg border-2 border-white z-10 relative -mt-2"
+                style={{ marginTop: '-8px' }} // Negative margin to make it touch the circle
               >
                 {profileCompleteness}% Complete
               </motion.div>
@@ -1229,32 +1234,37 @@ export default function ProfileLeftSidebar({ isOpen, onClose }) {
                             {user?.name?.charAt(0)?.toUpperCase() || 'U'}
                           </div>
                         )}
-
-                        {/* Crown Icon for Premium - Attached to top-right of image */}
-                        {user?.isPremium && (
-                          <motion.div
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            className="absolute top-0 right-0 bg-velora-primary rounded-full p-1.5 shadow-lg z-20 transform translate-x-1/4 -translate-y-1/4"
-                            style={{ border: '2px solid white' }}
-                          >
-                            <svg
-                              className="w-5 h-5 text-black"
-                              fill="currentColor"
-                              viewBox="0 0 24 24"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
-                            </svg>
-                          </motion.div>
-                        )}
                       </div>
 
-                  {/* Profile Completeness Badge - Attached below avatar */}
+                      {/* Crown Icon for Premium - Outside circle but touching it */}
+                      {user?.isPremium && (
                         <motion.div
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
-                          className="mt-2 bg-velora-primary text-black text-xs font-bold px-3 py-1 rounded-full shadow-lg border-2 border-white z-10 relative"
+                          className="absolute bg-velora-primary rounded-full p-1.5 shadow-lg z-20"
+                          style={{ 
+                            border: '2px solid white',
+                            top: '2px', // Position above the circle (8px padding + -6px offset)
+                            right: 'calc(50% - 48px - 12px)' // Position to the right of circle edge (48px = half of 96px circle, 12px = half of ~24px icon)
+                          }}
+                        >
+                          <svg
+                            className="w-5 h-5 text-black"
+                            fill="currentColor"
+                            viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
+                          </svg>
+                        </motion.div>
+                      )}
+
+                  {/* Profile Completeness Badge - Touching bottom of circle */}
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className="bg-velora-primary text-black text-xs font-bold px-3 py-1 rounded-full shadow-lg border-2 border-white z-10 relative -mt-2"
+                          style={{ marginTop: '-8px' }} // Negative margin to make it touch the circle
                         >
                     {profileCompleteness}% Complete
                         </motion.div>

@@ -353,5 +353,37 @@ export const adminService = {
     const response = await api.delete(`/admin/pages/${pageType}`);
     return response.data;
   },
+
+  // Photo Verification
+  getVerificationRequests: async (params = {}) => {
+    const response = await api.get('/admin/verifications', { params });
+    return response.data;
+  },
+
+  getVerificationRequest: async (id) => {
+    const response = await api.get(`/admin/verifications/${id}`);
+    return response.data;
+  },
+
+  approveVerification: async (id, data = {}) => {
+    const response = await api.post(`/admin/verifications/${id}/approve`, data);
+    return response.data;
+  },
+
+  rejectVerification: async (id, data = {}) => {
+    const response = await api.post(`/admin/verifications/${id}/reject`, data);
+    return response.data;
+  },
+
+  // Admin Notifications
+  getAdminNotifications: async (params = {}) => {
+    const response = await api.get('/admin/notifications/admin', { params });
+    return response.data;
+  },
+
+  markAdminNotificationRead: async (id) => {
+    const response = await api.patch(`/admin/notifications/admin/${id}/read`);
+    return response.data;
+  },
 };
 
