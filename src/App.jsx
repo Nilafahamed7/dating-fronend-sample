@@ -17,6 +17,7 @@ import ErrorBoundary from './components/common/ErrorBoundary';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import ProfileLeftSidebar from './components/sidebar/ProfileLeftSidebar';
 import { initNavbarHeight } from './utils/navbarHeight';
+import RouteTitleUpdater from './components/common/RouteTitleUpdater';
 
 // Lazy load heavy components to prevent crashes and improve performance
 const MarketingHome = lazy(() => import('./pages/MarketingHome'));
@@ -49,6 +50,8 @@ const AdminGifts = lazy(() => import('./pages/admin/AdminGifts'));
 const AdminGiftManagement = lazy(() => import('./pages/admin/AdminGiftManagement'));
 const AdminVerifications = lazy(() => import('./pages/admin/AdminVerifications'));
 const AdminVerificationReview = lazy(() => import('./pages/admin/AdminVerificationReview'));
+const AdminRequests = lazy(() => import('./pages/admin/AdminRequests'));
+const AdminRequestDetails = lazy(() => import('./pages/admin/AdminRequestDetails'));
 const AdminPayments = lazy(() => import('./pages/admin/AdminPayments'));
 const AdminWithdrawals = lazy(() => import('./pages/admin/AdminWithdrawals'));
 const AdminCoins = lazy(() => import('./pages/admin/AdminCoins'));
@@ -181,7 +184,7 @@ function GlobalSidebar() {
     location.pathname === '/about' ||
     location.pathname === '/refund-policy' ||
     location.pathname === '/safety-policy';
-  
+
   if (isHomePage || isAuthRoute || isAdminRoute || isCompleteProfile || isStaticPage) {
     return null;
   }
@@ -1117,6 +1120,22 @@ function AnimatedRoutes() {
           }
         />
         <Route
+          path="/admin/requests"
+          element={
+            <AdminProtectedRoute>
+              <AdminRequests />
+            </AdminProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/requests/:id"
+          element={
+            <AdminProtectedRoute>
+              <AdminRequestDetails />
+            </AdminProtectedRoute>
+          }
+        />
+        <Route
           path="/admin/verifications"
           element={
             <AdminProtectedRoute>
@@ -1407,84 +1426,85 @@ function App() {
         <CallProvider>
           <GroupsProvider>
             <Router>
-            <FCMNotificationProvider>
-            <DeepLinkHandler />
-            <ScrollToTop />
-          <div
-            className="App"
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              height: '100vh',
-              maxHeight: '100vh',
-              width: '100%',
-              overflow: 'hidden',
-              boxSizing: 'border-box',
-              position: 'relative',
-            }}
-          >
-            <ErrorBoundary>
-              <NavBarProvider>
-                {/* Global NavBar - Rendered once, stays mounted across routes - NEVER remounts */}
-                <GlobalNavBar />
-                {/* Main Layout Container - Flex row on desktop for sidebar + content */}
-                <MainLayoutContainer />
-                {/* BottomNav rendered conditionally - hidden on admin routes - NEVER remounts */}
-                <ConditionalBottomNav />
-              </NavBarProvider>
-            </ErrorBoundary>
-          </div>
-          <Toaster
-            position="top-center"
-            containerStyle={{
-              position: 'fixed',
-              top: '20px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              zIndex: 999999,
-              pointerEvents: 'none',
-            }}
-            toastOptions={{
-              duration: 4000,
-              style: {
-                background: '#363636',
-                color: '#fff',
-                borderRadius: '12px',
-                padding: '16px 20px',
-                fontSize: '14px',
-                fontWeight: '500',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.1)',
-                maxWidth: '400px',
-                wordWrap: 'break-word',
-                lineHeight: '1.5',
-                pointerEvents: 'auto',
-                zIndex: 999999,
-              },
-              success: {
-                iconTheme: {
-                  primary: '#4ade80',
-                  secondary: '#fff',
-                },
-                style: {
-                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                  color: '#fff',
-                  zIndex: 999999,
-                },
-              },
-              error: {
-                iconTheme: {
-                  primary: '#ef4444',
-                  secondary: '#fff',
-                },
-                style: {
-                  background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-                  color: '#fff',
-                  zIndex: 999999,
-                },
-              },
-            }}
-          />
-            </FCMNotificationProvider>
+              <FCMNotificationProvider>
+                <DeepLinkHandler />
+                <ScrollToTop />
+                <div
+                  className="App"
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    height: '100vh',
+                    maxHeight: '100vh',
+                    width: '100%',
+                    overflow: 'hidden',
+                    boxSizing: 'border-box',
+                    position: 'relative',
+                  }}
+                >
+                  <ErrorBoundary>
+                    <NavBarProvider>
+                      <RouteTitleUpdater />
+                      {/* Global NavBar - Rendered once, stays mounted across routes - NEVER remounts */}
+                      <GlobalNavBar />
+                      {/* Main Layout Container - Flex row on desktop for sidebar + content */}
+                      <MainLayoutContainer />
+                      {/* BottomNav rendered conditionally - hidden on admin routes - NEVER remounts */}
+                      <ConditionalBottomNav />
+                    </NavBarProvider>
+                  </ErrorBoundary>
+                </div>
+                <Toaster
+                  position="top-center"
+                  containerStyle={{
+                    position: 'fixed',
+                    top: '20px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    zIndex: 999999,
+                    pointerEvents: 'none',
+                  }}
+                  toastOptions={{
+                    duration: 4000,
+                    style: {
+                      background: '#363636',
+                      color: '#fff',
+                      borderRadius: '12px',
+                      padding: '16px 20px',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.1)',
+                      maxWidth: '400px',
+                      wordWrap: 'break-word',
+                      lineHeight: '1.5',
+                      pointerEvents: 'auto',
+                      zIndex: 999999,
+                    },
+                    success: {
+                      iconTheme: {
+                        primary: '#4ade80',
+                        secondary: '#fff',
+                      },
+                      style: {
+                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        color: '#fff',
+                        zIndex: 999999,
+                      },
+                    },
+                    error: {
+                      iconTheme: {
+                        primary: '#ef4444',
+                        secondary: '#fff',
+                      },
+                      style: {
+                        background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                        color: '#fff',
+                        zIndex: 999999,
+                      },
+                    },
+                  }}
+                />
+              </FCMNotificationProvider>
             </Router>
           </GroupsProvider>
         </CallProvider>

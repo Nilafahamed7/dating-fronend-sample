@@ -53,9 +53,8 @@ export default function ChatWindow({ matchId, otherUser }) {
   const {
     setBottomContent,
     callTrigger,
-    setProfileTitle,
-    setProfileShowBack,
-    setHomeLeftAction,
+    setNavbarTitle,
+    setShowBackButton,
     setHomeRightAction
   } = useNavBarContext();
 
@@ -112,40 +111,9 @@ export default function ChatWindow({ matchId, otherUser }) {
   // Update Navbar with User Info and Actions
   useEffect(() => {
     if (otherUser) {
-      // Binary status: "Online" or "Offline" only
-      const statusText = onlineStatus === 'online' ? 'Online' : 'Offline';
-      const isOnline = onlineStatus === 'online';
-
-      setProfileTitle(null); // Clear title, we'll use homeLeftAction instead
-      setProfileShowBack(true);
-
-      // Left side: Username with online status and timer (for non-premium males)
-      const isNonPremiumMale = !user?.isPremium && user?.gender === 'male';
-      const shouldShowTimerInNavbar = isNonPremiumMale && chatTimeRemaining && !isFemale;
-
-      setHomeLeftAction(
-        <div className="flex items-center gap-2 sm:gap-3 ml-2">
-          <div className="flex flex-col">
-            <h1 className="text-base sm:text-lg font-bold text-gray-900 truncate max-w-[150px] sm:max-w-[200px]">
-              {otherUser.name || 'User'}
-            </h1>
-            <div className="flex items-center gap-1.5" aria-live="polite" aria-atomic="true">
-              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} aria-hidden="true" />
-              <span className={`text-xs font-medium ${isOnline ? 'text-green-600' : 'text-gray-500'}`}>
-                {statusText}
-              </span>
-              {shouldShowTimerInNavbar && chatTimeRemaining && (
-                <>
-                  <span className="text-gray-400">•</span>
-                  <span className="text-xs font-semibold text-red-600 whitespace-nowrap">
-                    Reply within: {chatTimeRemaining.hours}h {String(chatTimeRemaining.minutes).padStart(2, '0')}m {String(chatTimeRemaining.seconds).padStart(2, '0')}s
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      );
+      // Set the navbar title to the user's name
+      setNavbarTitle(otherUser.name || 'User');
+      setShowBackButton(true);
 
       // Right side: Action buttons
       setHomeRightAction(
@@ -186,12 +154,11 @@ export default function ChatWindow({ matchId, otherUser }) {
     }
 
     return () => {
-      setProfileTitle(null);
-      setProfileShowBack(false);
-      setHomeLeftAction(null);
+      setNavbarTitle('');
+      setShowBackButton(false);
       setHomeRightAction(null);
     };
-  }, [otherUser, navigate, onlineStatus, matchId, setProfileTitle, setProfileShowBack, setHomeLeftAction, setHomeRightAction, user?.isPremium, user?.gender, chatTimeRemaining, isFemale]);
+  }, [otherUser, navigate, onlineStatus, matchId, setNavbarTitle, setShowBackButton, setHomeRightAction, user?.isPremium, user?.gender, chatTimeRemaining, isFemale]);
 
   // Get call context - will return default values if provider not available
   const callContext = useCall();
@@ -388,7 +355,7 @@ export default function ChatWindow({ matchId, otherUser }) {
         // Convert system message with call metadata to call event
         if (callMetadata.type === 'call_completed' || callMetadata.type === 'missed_call') {
           const isCaller = callMetadata.payerId ? (callMetadata.payerId.toString() === user?._id?.toString()) :
-                          (msg.sender?._id?.toString() === user?._id?.toString() || msg.sender?.toString() === user?._id?.toString());
+            (msg.sender?._id?.toString() === user?._id?.toString() || msg.sender?.toString() === user?._id?.toString());
 
           // Determine status: use transaction status if available, otherwise infer from message type
           let callStatus = 'completed';
@@ -497,10 +464,10 @@ export default function ChatWindow({ matchId, otherUser }) {
           callType: authoritativeCallType, // Trust server's callType
           // Map status correctly - use server status directly
           // Map all success statuses to 'completed' for display
-          status: (transactionData.status === 'paid' || 
-                   transactionData.status === 'completed' || 
-                   transactionData.status === 'ended' || 
-                   transactionData.status === 'success')
+          status: (transactionData.status === 'paid' ||
+            transactionData.status === 'completed' ||
+            transactionData.status === 'ended' ||
+            transactionData.status === 'success')
             ? 'completed'  // Map all success statuses to 'completed' for display
             : transactionData.status || 'completed', // Default to completed for unknown statuses (assume success)
           durationSeconds: transactionData.durationSeconds || 0,
@@ -1049,11 +1016,10 @@ export default function ChatWindow({ matchId, otherUser }) {
       const progressPercentage = timeRemaining ? (timeRemaining.total / (12 * 60 * 60 * 1000) * 100) : 0;
 
       setBottomContent(
-        <div className={`border-b px-4 py-3 flex-shrink-0 flex items-center w-full ${
-          isReplyWindowExpired
+        <div className={`border-b px-4 py-3 flex-shrink-0 flex items-center w-full ${isReplyWindowExpired
             ? 'bg-gradient-to-r from-red-50 to-orange-50 border-red-200'
             : 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200'
-        }`}>
+          }`}>
           <div className="flex items-center justify-between gap-3 w-full">
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <span className={`text-sm font-bold ${isReplyWindowExpired ? 'text-red-600' : 'text-orange-600'}`}>

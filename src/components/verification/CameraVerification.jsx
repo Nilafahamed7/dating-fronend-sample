@@ -113,7 +113,8 @@ export default function CameraVerification({ onSuccess, onCancel, isPending = fa
 
       // Create FormData with the captured image
       const formData = new FormData();
-      formData.append('photo', capturedImage.blob, 'verification-selfie.jpg');
+      formData.append('media', capturedImage.blob, 'verification-selfie.jpg');
+      formData.append('type', 'photo');
 
       // Add metadata to indicate this is from camera
       formData.append('source', 'camera');

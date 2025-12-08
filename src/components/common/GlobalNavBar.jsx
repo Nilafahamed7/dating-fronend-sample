@@ -1,6 +1,6 @@
-import { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import { createContext, useContext, useState, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Bars3Icon, ArrowLeftIcon, BellIcon, SparklesIcon } from '@heroicons/react/24/outline';
+import { Bars3Icon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
 import NotificationBell from './NotificationBell';
 import OnlineStatusToggle from './OnlineStatusToggle';
@@ -13,8 +13,11 @@ const NavBarContext = createContext(null);
 export function NavBarProvider({ children }) {
   const [showLeftSidebar, setShowLeftSidebar] = useState(false);
   const [showNotificationPanel, setShowNotificationPanel] = useState(false);
-  const [profileTitle, setProfileTitle] = useState(null);
-  const [profileShowBack, setProfileShowBack] = useState(false);
+
+  // Global Navbar State
+  const [navbarTitle, setNavbarTitle] = useState('');
+  const [showBackButton, setShowBackButton] = useState(false);
+
   const [bottomContent, setBottomContent] = useState(null);
   const [callTrigger, setCallTrigger] = useState(null);
   const [navBarContent, setNavBarContent] = useState(null);
@@ -27,10 +30,10 @@ export function NavBarProvider({ children }) {
       setShowLeftSidebar,
       showNotificationPanel,
       setShowNotificationPanel,
-      profileTitle,
-      setProfileTitle,
-      profileShowBack,
-      setProfileShowBack,
+      navbarTitle,
+      setNavbarTitle,
+      showBackButton,
+      setShowBackButton,
       bottomContent,
       setBottomContent,
       callTrigger,
@@ -45,8 +48,8 @@ export function NavBarProvider({ children }) {
     [
       showLeftSidebar,
       showNotificationPanel,
-      profileTitle,
-      profileShowBack,
+      navbarTitle,
+      showBackButton,
       bottomContent,
       callTrigger,
       navBarContent,
@@ -62,16 +65,15 @@ export function NavBarProvider({ children }) {
 export function useNavBarContext() {
   const context = useContext(NavBarContext);
   if (!context) {
-    // Return default values if context is not available (for components outside provider)
     return {
       showLeftSidebar: false,
       setShowLeftSidebar: () => { },
       showNotificationPanel: false,
       setShowNotificationPanel: () => { },
-      profileTitle: null,
-      setProfileTitle: () => { },
-      profileShowBack: false,
-      setProfileShowBack: () => { },
+      navbarTitle: '',
+      setNavbarTitle: () => { },
+      showBackButton: false,
+      setShowBackButton: () => { },
       bottomContent: null,
       setBottomContent: () => { },
       callTrigger: null,
@@ -97,75 +99,13 @@ function GlobalNavBar() {
     setShowLeftSidebar,
     showNotificationPanel,
     setShowNotificationPanel,
-    profileTitle,
-    profileShowBack,
-    setProfileShowBack,
+    navbarTitle,
+    showBackButton,
     homeLeftAction,
     homeRightAction
   } = useNavBarContext();
 
   const path = location.pathname;
-
-  // Get navbar content based on route
-  const getNavBarContent = useCallback(() => {
-    // Use profileTitle if set (for create pages)
-    if (profileTitle) {
-      return {
-        title: profileTitle,
-        showBack: profileShowBack,
-      };
-    }
-
-    // Route-specific content
-    if (path === '/') {
-      return { title: 'Discover', showBack: false };
-    }
-    if (path === '/matches') {
-      return { title: 'Matches', showBack: false };
-    }
-    if (path.startsWith('/chat')) {
-      return { title: 'Chat', showBack: path !== '/chat' };
-    }
-    if (path === '/calls') {
-      return { title: 'Calls', showBack: false };
-    }
-    if (path === '/profile' || path.startsWith('/profile/')) {
-      return { title: 'Profile', showBack: path !== '/profile' };
-    }
-    if (path === '/events' || path.startsWith('/events/')) {
-      return { title: 'Events', showBack: path !== '/events' };
-    }
-    if (path === '/forums' || path.startsWith('/forums/')) {
-      return { title: 'Forums', showBack: path !== '/forums' };
-    }
-    if (path === '/wallet') {
-      return { title: 'Wallet', showBack: false };
-    }
-    if (path === '/withdraw-requests') {
-      return { title: 'Withdraw Requests', showBack: false };
-    }
-    if (path.startsWith('/events/create')) {
-      return { title: 'Create Event', showBack: true };
-    }
-    if (path.startsWith('/forums/create')) {
-      return { title: 'Create Forum', showBack: true };
-    }
-    if (path.startsWith('/groups/create')) {
-      return { title: 'Create Group', showBack: true };
-    }
-    if (path.startsWith('/communities/create')) {
-      return { title: 'Create Community', showBack: true };
-    }
-    if (path.startsWith('/group-dates/create')) {
-      return { title: 'Create Group Date', showBack: true };
-    }
-
-    return { title: '', showBack: false };
-  }, [location.pathname, profileTitle, profileShowBack]);
-
-  const navContent = getNavBarContent();
-  const showBack = navContent.showBack || profileShowBack;
-  const title = navContent.title || '';
 
   // Don't show navbar on auth pages, admin pages, or complete-profile page
   const isAuthRoute = ['/login', '/signup'].includes(path);
@@ -185,20 +125,34 @@ function GlobalNavBar() {
 
   // Determine if back button should be shown on mobile
   // Show back button on mobile for all pages except main/home pages
-  const mainPages = ['/', '/home', '/matches', '/chat', '/calls', '/profile', '/wallet'];
-  const isMainPage = mainPages.some(mainPath => {
-    if (mainPath === '/chat') {
-      return path === '/chat'; // Only exact match for /chat
-    }
-    if (mainPath === '/profile') {
-      return path === '/profile'; // Only exact match for /profile
-    }
-    return path === mainPath;
-  });
+  // Also respect the global showBackButton state
+  const mainPages = ['/', '/home', '/matches', '/chat', '/calls', '/profile', '/wallet', '/groups', '/utility'];
 
-  // On mobile, show back button if not on a main page OR if explicitly set to show back
-  // On desktop, only show back if explicitly set
-  const shouldShowBackOnMobile = !isMainPage || showBack;
+  // Exact match for main pages to hide back button on mobile
+  const isMainPage = mainPages.some(mainPath => path === mainPath);
+
+  // On mobile: Show back button if NOT a main page OR if explicitly requested
+  // On desktop: Back button is hidden (browser back used instead), always show menu
+  const shouldShowBackOnMobile = !isMainPage || showBackButton;
+  const shouldShowBackOnDesktop = false;
+
+  const handleBack = () => {
+    // Smart back navigation
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      // Fallback navigation based on current section
+      if (path.startsWith('/chat/')) {
+        navigate('/chat');
+      } else if (path.startsWith('/groups/')) {
+        navigate('/groups');
+      } else if (path.startsWith('/profile/')) {
+        navigate('/profile');
+      } else {
+        navigate('/');
+      }
+    }
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-amber-50 to-yellow-50 border-b border-amber-200 shadow-sm">
@@ -209,15 +163,7 @@ function GlobalNavBar() {
             {/* Mobile: Show back button if shouldShowBackOnMobile is true */}
             {shouldShowBackOnMobile ? (
               <button
-                onClick={() => {
-                  // Check if there's history to go back to
-                  if (window.history.length > 1) {
-                    navigate(-1);
-                  } else {
-                    // If no history, navigate to home
-                    navigate('/home');
-                  }
-                }}
+                onClick={handleBack}
                 className="lg:hidden p-2 hover:bg-amber-100 rounded-lg transition-colors"
                 aria-label="Go back"
               >
@@ -242,15 +188,9 @@ function GlobalNavBar() {
             )}
 
             {/* Desktop: Show back button if explicitly set, otherwise show menu */}
-            {showBack ? (
+            {shouldShowBackOnDesktop ? (
               <button
-                onClick={() => {
-                  if (window.history.length > 1) {
-                    navigate(-1);
-                  } else {
-                    navigate('/home');
-                  }
-                }}
+                onClick={handleBack}
                 className="hidden lg:flex p-2 hover:bg-amber-100 rounded-lg transition-colors"
                 aria-label="Go back"
               >
@@ -273,15 +213,13 @@ function GlobalNavBar() {
                 </button>
               )
             )}
+
             {homeLeftAction ? (
               homeLeftAction
             ) : (
-              title && (
+              navbarTitle && (
                 <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate flex items-center gap-2">
-                  {title === 'Discover' && (
-                    <SparklesIcon className="w-5 h-5 sm:w-6 sm:h-6 text-velora-primary" />
-                  )}
-                  {title}
+                  {navbarTitle}
                 </h1>
               )
             )}
@@ -295,7 +233,7 @@ function GlobalNavBar() {
           </div>
         </div>
       </div>
-      
+
       {/* Notification Panel - Rendered from top navbar */}
       <NotificationPanel
         isOpen={showNotificationPanel}

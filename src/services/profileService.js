@@ -252,7 +252,7 @@ export const profileService = {
   },
 
   uploadVerificationPhoto: async (formData) => {
-    const response = await api.post('/auth/photo-verification', formData, {
+    const response = await api.post('/verification-requests', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -318,7 +318,7 @@ export const profileService = {
 
           // Check for API errors
           if (geoNamesData.status) {
-            } else if (geoNamesData?.geonames && geoNamesData.geonames.length > 0) {
+          } else if (geoNamesData?.geonames && geoNamesData.geonames.length > 0) {
             const states = geoNamesData.geonames.map(place => ({
               name: place.name,
               code: place.adminCode1 || place.geonameId?.toString() || place.name,
@@ -337,9 +337,9 @@ export const profileService = {
             }
           }
         } else {
-          }
-      } catch (geoNamesError) {
         }
+      } catch (geoNamesError) {
+      }
 
       // Method 1b: Try GeoNames children API (get country's geonameId first, then children)
       try {
@@ -400,7 +400,7 @@ export const profileService = {
           }
         }
       } catch (childrenError) {
-        }
+      }
 
       // Method 2: Try REST Countries API with full data (includes subdivisions)
       try {
@@ -424,7 +424,7 @@ export const profileService = {
           }
         }
       } catch (restError) {
-        }
+      }
 
       // Method 3: Try GeoNames with country name search (alternative approach)
       try {
@@ -468,7 +468,7 @@ export const profileService = {
           }
         }
       } catch (altError) {
-        }
+      }
 
       // Method 4: Static fallback - comprehensive data for all major countries
       const staticStates = getStaticStates(countryCode);
@@ -512,7 +512,7 @@ export const profileService = {
           }
         }
       } catch (finalError) {
-        }
+      }
 
       // If all methods fail, return empty array
       return { success: true, states: [] };

@@ -24,8 +24,8 @@ export default function Profile() {
   const navBarContext = useNavBarContext();
 
   // Extract setters to avoid depending on the entire context object
-  const setProfileTitle = navBarContext?.setProfileTitle;
-  const setProfileShowBack = navBarContext?.setProfileShowBack;
+  const setNavbarTitle = navBarContext?.setNavbarTitle;
+  const setShowBackButton = navBarContext?.setShowBackButton;
   const setHomeRightAction = navBarContext?.setHomeRightAction;
 
   // Define loadProfile before useEffect that uses it
@@ -112,7 +112,7 @@ export default function Profile() {
 
   // Update navbar title and actions based on profile state
   useEffect(() => {
-    if (!setProfileTitle || !setProfileShowBack || !setHomeRightAction) {
+    if (!setNavbarTitle || !setShowBackButton || !setHomeRightAction) {
       return;
     }
 
@@ -120,7 +120,7 @@ export default function Profile() {
     if (!profile) {
       // Clear navbar when profile is not loaded
       if (prevTitleRef.current !== null) {
-        setProfileTitle(null);
+        setNavbarTitle('');
         prevTitleRef.current = null;
       }
       // Clear right action
@@ -131,18 +131,18 @@ export default function Profile() {
       return;
     }
 
-    const title = isOwnProfile ? (editing ? 'Edit Profile' : 'My Profile') : (profile?.userId?.name || profile?.name || 'Profile');
-    const showBack = !isOwnProfile;
+    const title = isOwnProfile ? (editing ? 'Edit Profile' : 'Profile') : (profile?.userId?.name || profile?.name || 'Profile');
+    const showBack = !isOwnProfile || editing; // Show back button when editing or viewing other profile
     const rightAction = isOwnProfile && !editing ? editButton : null;
 
     // Only update if values actually changed
     if (prevTitleRef.current !== title) {
-      setProfileTitle(title);
+      setNavbarTitle(title);
       prevTitleRef.current = title;
     }
 
     if (prevShowBackRef.current !== showBack) {
-      setProfileShowBack(showBack);
+      setShowBackButton(showBack);
       prevShowBackRef.current = showBack;
     }
 

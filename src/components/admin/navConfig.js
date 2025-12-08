@@ -22,10 +22,12 @@ import {
   CurrencyDollarIcon,
   ArrowDownTrayIcon,
   BanknotesIcon as CoinsIcon,
+  ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
 
 export const ADMIN_NAV_ITEMS = [
   { key: 'dashboard', label: 'Dashboard', icon: Squares2X2Icon, mode: 'internal', path: '/admin/dashboard' },
+  { key: 'requests', label: 'Requests', icon: ShieldCheckIcon, mode: 'route', path: '/admin/requests' },
   { key: 'interest', label: 'Interest', icon: SparklesIcon, mode: 'internal', path: '/admin/dashboard' },
   { key: 'language', label: 'Language', icon: GlobeAltIcon, mode: 'internal', path: '/admin/dashboard' },
   { key: 'religion', label: 'Religion', icon: BuildingLibraryIcon, mode: 'internal', path: '/admin/dashboard' },

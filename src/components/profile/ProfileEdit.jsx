@@ -583,20 +583,8 @@ export default function ProfileEdit({ profile, onSave }) {
     return Boolean(errors[fieldName] && (touched[fieldName] || isSubmitted));
   };
 
-  // Real-time validation - always calculate errors, but only display based on touched/isSubmitted
-  const validationErrors = useMemo(() => {
-    // If profile hasn't loaded yet, don't validate
-    if (!profile) {
-      return {};
-    }
-
-    // If we have initial data and form hasn't been touched/submitted, don't validate
-    // This prevents errors from showing for pre-filled fields on initial render
-    // This is the KEY fix: don't create validation errors for pre-filled fields on mount
-    if (hasInitialData && !formTouched && !isSubmitted) {
-      return {};
-    }
-
+  // Validate form data
+  const validate = () => {
     const newErrors = {};
 
     // Gender validation
@@ -613,68 +601,33 @@ export default function ProfileEdit({ profile, onSave }) {
       }
     }
 
-    // Interests validation - only error if array is empty or doesn't exist
+    // Interests validation
     if (!formData.interests || !Array.isArray(formData.interests) || formData.interests.length === 0) {
       newErrors.interests = 'Please select at least one interest';
     }
 
-    // Location validation - check if values exist and are not empty
+    // Location validation
     if (formData.location) {
-      const city = formData.location.city;
-      const country = formData.location.country;
-      const state = formData.location.state;
-
-      // Only create error if field is truly empty (empty string after trim, null, or undefined)
-      // Don't create error if field has a value
-      if (city === undefined || city === null || (typeof city === 'string' && city.trim().length === 0)) {
-        newErrors.city = 'City is required';
-      }
-      if (country === undefined || country === null || (typeof country === 'string' && country.trim().length === 0)) {
-        newErrors.country = 'Country is required';
-      }
-      if (state === undefined || state === null || (typeof state === 'string' && state.trim().length === 0)) {
-        newErrors.state = 'State is required';
-      }
+      const { city, country, state } = formData.location;
+      if (!city || (typeof city === 'string' && city.trim().length === 0)) newErrors.city = 'City is required';
+      if (!country || (typeof country === 'string' && country.trim().length === 0)) newErrors.country = 'Country is required';
+      if (!state || (typeof state === 'string' && state.trim().length === 0)) newErrors.state = 'State is required';
     }
 
     // Preferences validation
     if (!formData.preferences.ageRange) {
       newErrors.ageRange = 'Age range is required';
     } else {
-      // Convert to numbers for proper comparison
       const minAge = Number(formData.preferences.ageRange.min);
       const maxAge = Number(formData.preferences.ageRange.max);
 
-      // Only show errors for invalid values (below 18 or above 100)
-      // Don't show errors if values are empty (user is still typing) or valid
-      if (formData.preferences.ageRange.min !== '' && formData.preferences.ageRange.min !== null && formData.preferences.ageRange.min !== undefined) {
-        if (isNaN(minAge)) {
-          // Invalid number, but don't show error while typing
-        } else if (minAge < 18) {
-          newErrors.ageMin = 'Minimum age must be at least 18';
-        } else if (minAge > 100) {
-          newErrors.ageMin = 'Minimum age must be at most 100';
-        }
-      }
+      if (isNaN(minAge) || minAge < 18) newErrors.ageMin = 'Minimum age must be at least 18';
+      else if (minAge > 100) newErrors.ageMin = 'Minimum age must be at most 100';
 
-      if (formData.preferences.ageRange.max !== '' && formData.preferences.ageRange.max !== null && formData.preferences.ageRange.max !== undefined) {
-        if (isNaN(maxAge)) {
-          // Invalid number, but don't show error while typing
-        } else if (maxAge > 100) {
-          newErrors.ageMax = 'Maximum age must be at most 100';
-        } else if (maxAge < 18) {
-          newErrors.ageMax = 'Maximum age must be at least 18';
-        }
-      }
+      if (isNaN(maxAge) || maxAge > 100) newErrors.ageMax = 'Maximum age must be at most 100';
+      else if (maxAge < 18) newErrors.ageMax = 'Maximum age must be at least 18';
 
-      // Only check min < max if both are valid numbers and not empty
-      if (
-        !isNaN(minAge) &&
-        !isNaN(maxAge) &&
-        formData.preferences.ageRange.min !== '' &&
-        formData.preferences.ageRange.max !== '' &&
-        minAge >= maxAge
-      ) {
+      if (!isNaN(minAge) && !isNaN(maxAge) && minAge >= maxAge) {
         newErrors.ageRange = 'Minimum age must be less than maximum age';
       }
     }
@@ -693,49 +646,6 @@ export default function ProfileEdit({ profile, onSave }) {
     }
 
     return newErrors;
-  }, [formData, photos, profile, hasInitialData, formTouched, isSubmitted]);
-
-  // Update errors state when validation changes
-  // Always update errors from validation, but display is controlled by shouldShowError
-  // IMPORTANT: Don't set errors for fields that have values, even if validation runs
-  useEffect(() => {
-    // If we have initial data and form hasn't been touched/submitted, don't set any errors
-    if (hasInitialData && !formTouched && !isSubmitted) {
-      setErrors({});
-      return;
-    }
-
-    setErrors((prevErrors) => {
-      const newErrors = { ...prevErrors };
-
-      // Update all errors from validation
-      Object.keys(validationErrors).forEach((key) => {
-        if (validationErrors[key]) {
-          newErrors[key] = validationErrors[key];
-        } else if (key !== 'ageMin' && key !== 'ageMax' && key !== 'ageRange') {
-          // Only clear non-age errors automatically
-          delete newErrors[key];
-        }
-      });
-
-      // For age errors, only add if validation says there's an error
-      // Don't clear them here - let onChange handlers clear them
-      if (validationErrors.ageMin) {
-        newErrors.ageMin = validationErrors.ageMin;
-      }
-      if (validationErrors.ageMax) {
-        newErrors.ageMax = validationErrors.ageMax;
-      }
-      if (validationErrors.ageRange) {
-        newErrors.ageRange = validationErrors.ageRange;
-      }
-
-      return newErrors;
-    });
-  }, [validationErrors, hasInitialData, formTouched, isSubmitted]);
-
-  const validateForm = () => {
-    return Object.keys(validationErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
@@ -747,25 +657,24 @@ export default function ProfileEdit({ profile, onSave }) {
       return;
     }
 
-    // Mark form as submitted - this will show all validation errors
+    // Run validation ONLY on submit
+    const newErrors = validate();
+    setErrors(newErrors);
     setIsSubmitted(true);
     setFormTouched(true);
 
-    // Mark all fields with errors as touched so errors are visible
-    const fieldsWithErrors = Object.keys(validationErrors);
-    if (fieldsWithErrors.length > 0) {
+    // Mark fields with errors as touched
+    if (Object.keys(newErrors).length > 0) {
       const newTouched = { ...touched };
-      fieldsWithErrors.forEach(field => {
+      Object.keys(newErrors).forEach(field => {
         newTouched[field] = true;
       });
       setTouched(newTouched);
-    }
 
-    // Validate form
-    if (!validateForm()) {
       toast.error('Please fill in all required fields correctly');
-      // Scroll to first error field
-      const firstErrorField = fieldsWithErrors[0];
+
+      // Scroll to first error
+      const firstErrorField = Object.keys(newErrors)[0];
       if (firstErrorField) {
         const element = document.querySelector(`[name="${firstErrorField}"], #${firstErrorField}`);
         if (element) {
@@ -792,7 +701,6 @@ export default function ProfileEdit({ profile, onSave }) {
       const response = await profileService.updateProfile(updateData);
 
       // Update preferences separately if they exist
-      // Backend expects ageRange as array [min, max], not object
       if (formData.preferences) {
         try {
           // Ensure ageRange values are integers
@@ -801,15 +709,13 @@ export default function ProfileEdit({ profile, onSave }) {
 
           // Validate age range
           if (minAge < 18 || minAge > 100 || maxAge < 18 || maxAge > 100 || minAge >= maxAge) {
-            throw new Error('Invalid age range. Minimum must be 18-100, maximum must be 18-100, and minimum must be less than maximum.');
+            throw new Error('Invalid age range.');
           }
 
           const preferencesData = {
             ageRange: [minAge, maxAge],
             distance: parseInt(formData.preferences.distance, 10) || 50,
             goals: formData.preferences.goals && formData.preferences.goals.length > 0 ? formData.preferences.goals : undefined,
-            // Note: gender preference is stored in User model, not Preference model
-            // We'll handle it separately if needed
           };
 
           // Only send if we have valid data
@@ -819,8 +725,6 @@ export default function ProfileEdit({ profile, onSave }) {
         } catch (prefError) {
           const errorMessage = prefError.response?.data?.message || prefError.message || 'Failed to update preferences';
           toast.error(errorMessage);
-          // Don't re-throw - allow profile update to succeed even if preferences fail
-          // User can try updating preferences again separately
         }
       }
 
@@ -874,11 +778,7 @@ export default function ProfileEdit({ profile, onSave }) {
       // Redirect to home page after successful save
       // Use window.location for more reliable redirect
       setTimeout(() => {
-        try {
-          navigate('/', { replace: true });
-        } catch (navError) {
-          window.location.href = '/';
-        }
+        navigate('/', { replace: true });
       }, 500);
     } catch (error) {
       const message = error.response?.data?.message || 'Failed to update profile';
@@ -913,6 +813,10 @@ export default function ProfileEdit({ profile, onSave }) {
       setLoading(false);
     }
   };
+
+
+
+
 
   const profileData = profile?.profile || profile;
   const userData = profile?.userId || profile || user;
@@ -1744,10 +1648,10 @@ export default function ProfileEdit({ profile, onSave }) {
         >
           <motion.button
             type="submit"
-            disabled={loading || (isSubmitted && Object.keys(validationErrors).length > 0)}
-            whileHover={!loading && (!isSubmitted || Object.keys(validationErrors).length === 0) ? { scale: 1.02, y: -2 } : {}}
-            whileTap={!loading && (!isSubmitted || Object.keys(validationErrors).length === 0) ? { scale: 0.98 } : {}}
-            className={`w-full px-8 py-4 bg-gradient-to-r from-yellow-500 via-yellow-400 to-yellow-500 text-black font-bold text-lg rounded-2xl shadow-xl flex items-center justify-center gap-3 transition-all ${loading || (isSubmitted && Object.keys(validationErrors).length > 0)
+            disabled={loading || (isSubmitted && Object.keys(errors).length > 0)}
+            whileHover={!loading && (!isSubmitted || Object.keys(errors).length === 0) ? { scale: 1.02, y: -2 } : {}}
+            whileTap={!loading && (!isSubmitted || Object.keys(errors).length === 0) ? { scale: 0.98 } : {}}
+            className={`w-full px-8 py-4 bg-gradient-to-r from-yellow-500 via-yellow-400 to-yellow-500 text-black font-bold text-lg rounded-2xl shadow-xl flex items-center justify-center gap-3 transition-all ${loading || (isSubmitted && Object.keys(errors).length > 0)
               ? 'opacity-50 cursor-not-allowed'
               : 'hover:shadow-2xl hover:from-yellow-600 hover:via-yellow-500 hover:to-yellow-600'
               }`}

@@ -385,5 +385,21 @@ export const adminService = {
     const response = await api.patch(`/admin/notifications/admin/${id}/read`);
     return response.data;
   },
+
+  // New Verification Requests
+  getRequests: async (params = {}) => {
+    const response = await api.get('/verification-requests/admin', { params });
+    return response.data;
+  },
+
+  getRequestDetails: async (id) => {
+    const response = await api.get(`/verification-requests/admin/${id}`);
+    return response.data;
+  },
+
+  updateRequestStatus: async (id, status, rejectionReason) => {
+    const response = await api.put(`/verification-requests/admin/${id}/status`, { status, rejectionReason });
+    return response.data;
+  },
 };
 

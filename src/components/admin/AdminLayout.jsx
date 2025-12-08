@@ -56,10 +56,10 @@ export default function AdminLayout({
       <div className="px-7 py-8 flex items-center justify-between border-b border-white/10 flex-shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#ff6ec4] to-[#ffe357] flex items-center justify-center text-xl font-bold text-gray-900">
-            VA
+            XA
           </div>
           <div>
-            <p className="text-sm uppercase tracking-widest text-white/70">Velora Admin</p>
+            <p className="text-sm uppercase tracking-widest text-white/70">Xating Admin</p>
             <p className="text-2xl font-bold">Control Panel</p>
           </div>
         </div>
