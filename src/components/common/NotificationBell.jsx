@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { BellIcon } from '@heroicons/react/24/outline';
 import { BellIcon as BellSolidIcon } from '@heroicons/react/24/solid';
 import { notificationService } from '../../services/notificationService';
@@ -14,7 +15,7 @@ export default function NotificationBell() {
             const count = await notificationService.getUnreadCount();
             setUnreadCount(count);
         } catch (error) {
-            }
+        }
     };
 
     useEffect(() => {
@@ -71,7 +72,9 @@ export default function NotificationBell() {
 
     return (
         <div className="relative">
-            <button
+            <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={handleClick}
                 className="relative p-2 text-gray-600 hover:text-velora-primary transition-colors"
                 aria-label="Open notifications"
@@ -82,11 +85,11 @@ export default function NotificationBell() {
                     <BellIcon className="w-6 h-6" />
                 )}
                 {unreadCount > 0 && (
-                    <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                    <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
                         {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
                 )}
-            </button>
+            </motion.button>
         </div>
     );
 }

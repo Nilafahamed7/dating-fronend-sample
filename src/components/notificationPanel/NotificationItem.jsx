@@ -118,3 +118,5 @@ export default function NotificationItem({ notification, onClick, index }) {
   );
 }
 
+
+

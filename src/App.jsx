@@ -903,15 +903,7 @@ function AnimatedRoutes() {
           path="/groups/:groupId"
           element={
             <ProtectedRoute>
-              <motion.div
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                variants={pageVariants}
-                transition={pageTransition}
-              >
-                <GroupDetails />
-              </motion.div>
+              <GroupDetails />
             </ProtectedRoute>
           }
         />
@@ -919,15 +911,7 @@ function AnimatedRoutes() {
           path="/group/:groupId"
           element={
             <ProtectedRoute>
-              <motion.div
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                variants={pageVariants}
-                transition={pageTransition}
-              >
-                <GroupDetails />
-              </motion.div>
+              <GroupDetails />
             </ProtectedRoute>
           }
         />

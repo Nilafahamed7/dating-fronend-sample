@@ -297,7 +297,7 @@ export default function OnlineStatusToggle() {
     // If there's already an update in progress, queue this one
     handleUpdatePresence(stateToUpdate, previousState).catch((error) => {
       // Error handling is done in handleUpdatePresence
-      });
+    });
   };
 
   // Only disable toggle during active network request (brief spinner)
@@ -309,7 +309,9 @@ export default function OnlineStatusToggle() {
       <div className="flex items-center gap-2 group">
         {/* Toggle Switch */}
         <div className="relative">
-          <label
+          <motion.label
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             className={`relative inline-flex items-center cursor-pointer ${isDisabled ? 'opacity-60' : ''}`}
             role="switch"
             aria-checked={isOnline}
@@ -325,7 +327,7 @@ export default function OnlineStatusToggle() {
               aria-label={isOnline ? 'Online - Click to go offline' : 'Offline - Click to go online'}
             />
             <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-velora-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
-          </label>
+          </motion.label>
           {isUpdating && (
             <div className="absolute -top-1 -right-1 w-3 h-3">
               <svg
@@ -342,15 +344,17 @@ export default function OnlineStatusToggle() {
         </div>
 
         {/* Persistent Label */}
-        <span
-          className={`text-sm font-medium transition-colors duration-200 ${
-            isOnline ? 'text-green-600' : 'text-gray-500'
-          }`}
+        <motion.span
+          key={isOnline ? 'online' : 'offline'}
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`text-sm font-medium transition-colors duration-200 ${isOnline ? 'text-green-600' : 'text-gray-500'
+            }`}
           aria-live="polite"
           aria-atomic="true"
         >
           {isOnline ? 'Online' : 'Offline'}
-        </span>
+        </motion.span>
 
         {/* Tooltip */}
         <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
@@ -412,49 +416,48 @@ export default function OnlineStatusToggle() {
                     aria-describedby="modal-description"
                     className="bg-white rounded-2xl shadow-2xl w-full p-6"
                   >
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className={`p-2 rounded-lg ${pendingState ? 'bg-green-100' : 'bg-gray-100'}`}>
-                      {pendingState ? (
-                        <div className="w-6 h-6 bg-green-500 rounded-full"></div>
-                      ) : (
-                        <div className="w-6 h-6 bg-gray-400 rounded-full"></div>
-                      )}
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className={`p-2 rounded-lg ${pendingState ? 'bg-green-100' : 'bg-gray-100'}`}>
+                        {pendingState ? (
+                          <div className="w-6 h-6 bg-green-500 rounded-full"></div>
+                        ) : (
+                          <div className="w-6 h-6 bg-gray-400 rounded-full"></div>
+                        )}
+                      </div>
+                      <h3 id="modal-title" className="text-xl font-bold text-black">
+                        {pendingState ? 'Go Online?' : 'Go Offline?'}
+                      </h3>
                     </div>
-                    <h3 id="modal-title" className="text-xl font-bold text-black">
-                      {pendingState ? 'Go Online?' : 'Go Offline?'}
-                    </h3>
-                  </div>
-                  <p id="modal-description" className="text-gray-600 mb-6 leading-relaxed">
-                    {pendingState
-                      ? 'Are you sure you want to appear Online?'
-                      : 'Are you sure? When you go Offline, you will not receive calls.'}
-                  </p>
-                  <div className="flex gap-3">
-                    <motion.button
-                      onClick={handleCancel}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      disabled={isUpdating}
-                      className="flex-1 px-4 py-3 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50"
-                      aria-label="Cancel"
-                    >
-                      Cancel
-                    </motion.button>
-                    <motion.button
-                      onClick={handleConfirm}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      disabled={isUpdating}
-                      className={`flex-1 px-4 py-3 font-bold rounded-lg hover:opacity-90 transition-all disabled:opacity-50 ${
-                        pendingState
+                    <p id="modal-description" className="text-gray-600 mb-6 leading-relaxed">
+                      {pendingState
+                        ? 'Are you sure you want to appear Online?'
+                        : 'Are you sure? When you go Offline, you will not receive calls.'}
+                    </p>
+                    <div className="flex gap-3">
+                      <motion.button
+                        onClick={handleCancel}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        disabled={isUpdating}
+                        className="flex-1 px-4 py-3 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50"
+                        aria-label="Cancel"
+                      >
+                        Cancel
+                      </motion.button>
+                      <motion.button
+                        onClick={handleConfirm}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        disabled={isUpdating}
+                        className={`flex-1 px-4 py-3 font-bold rounded-lg hover:opacity-90 transition-all disabled:opacity-50 ${pendingState
                           ? 'bg-green-500 text-white'
                           : 'bg-velora-primary text-black'
-                      }`}
-                      aria-label={pendingState ? 'Confirm go online' : 'Confirm go offline'}
-                    >
-                      {isUpdating ? 'Updating...' : 'Confirm'}
-                    </motion.button>
-                  </div>
+                          }`}
+                        aria-label={pendingState ? 'Confirm go online' : 'Confirm go offline'}
+                      >
+                        {isUpdating ? 'Updating...' : 'Confirm'}
+                      </motion.button>
+                    </div>
                   </div>
                 </motion.div>
               </div>

@@ -164,11 +164,10 @@ export default function MessageBubble({ message, isMine, index = 0, onInvitation
       }}
     >
       <motion.div
-        className={`max-w-xs lg:max-w-md px-5 py-3 rounded-3xl shadow-md backdrop-blur-sm relative ${
-          isMine
+        className={`max-w-xs lg:max-w-md px-5 py-3 rounded-3xl shadow-md backdrop-blur-sm relative ${isMine
             ? 'bg-gradient-to-br from-yellow-400 to-yellow-500 text-black rounded-br-md'
             : 'bg-white text-gray-800 rounded-bl-md border border-gray-100'
-        }`}
+          }`}
         style={{
           overflow: 'visible',
           zIndex: showGiftValue ? 1000 : 'auto',
@@ -202,11 +201,10 @@ export default function MessageBubble({ message, isMine, index = 0, onInvitation
 
         {isGift && (
           <motion.div
-            className={`text-center py-5 px-4 rounded-2xl relative cursor-pointer ${
-              isMine
+            className={`text-center py-5 px-4 rounded-2xl relative cursor-pointer ${isMine
                 ? 'bg-gradient-to-br from-pink-100 via-rose-100 to-purple-100'
                 : 'bg-gradient-to-br from-pink-50 via-rose-50 to-purple-50'
-            }`}
+              }`}
             style={{
               overflow: 'visible',
               zIndex: showGiftValue ? 10000 : 'auto',
@@ -467,10 +465,10 @@ export default function MessageBubble({ message, isMine, index = 0, onInvitation
                       animate={{
                         rotate: [0, -360],
                         scale: [1, 1.2, 1]
-              }}
-              transition={{
-                duration: 2,
-                repeat: Infinity,
+                      }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
                         ease: "linear"
                       }}
                       className="text-xl"
@@ -507,13 +505,13 @@ export default function MessageBubble({ message, isMine, index = 0, onInvitation
                           ease: "easeOut",
                           repeat: Infinity,
                           repeatDelay: 1
-              }}
-            >
+                        }}
+                      >
                         ✨
                       </motion.div>
                     );
                   })}
-            </motion.div>
+                </motion.div>
               )}
             </div>
 
@@ -543,11 +541,10 @@ export default function MessageBubble({ message, isMine, index = 0, onInvitation
 
         {isGroupInvitation && (
           <motion.div
-            className={`py-5 px-4 rounded-2xl relative overflow-hidden ${
-              isMine
+            className={`py-5 px-4 rounded-2xl relative overflow-hidden ${isMine
                 ? 'bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100'
                 : 'bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50'
-            }`}
+              }`}
             initial={{ scale: 0.9 }}
             animate={{ scale: 1 }}
             transition={{ type: "spring", stiffness: 200 }}
@@ -696,9 +693,25 @@ export default function MessageBubble({ message, isMine, index = 0, onInvitation
           </div>
         )}
 
-        <p className={`text-xs mt-2 ${isMine ? 'text-black/50' : 'text-gray-400'} font-medium`}>
-          {formatMessageTimestamp(message.createdAt)}
-        </p>
+        <div className={`flex items-center gap-1 mt-2 ${isMine ? 'justify-end' : 'justify-start'}`}>
+          <p className={`text-xs ${isMine ? 'text-black/50' : 'text-gray-400'} font-medium`}>
+            {formatMessageTimestamp(message.createdAt)}
+          </p>
+          {isMine && (
+            <div className="flex items-center">
+              {message.status === 'sending' ? (
+                <span className="text-gray-500 text-[10px]">🕒</span>
+              ) : message.isRead ? (
+                <div className="flex">
+                  <CheckIcon className="w-3 h-3 text-blue-500 stroke-[3]" />
+                  <CheckIcon className="w-3 h-3 text-blue-500 stroke-[3] -ml-1.5" />
+                </div>
+              ) : (
+                <CheckIcon className="w-3 h-3 text-gray-500 stroke-[2]" />
+              )}
+            </div>
+          )}
+        </div>
 
         {message.reactions && message.reactions.length > 0 && (
           <div className="flex gap-1 mt-2">

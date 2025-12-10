@@ -75,10 +75,10 @@ export const initializeSocket = (userId) => {
   });
 
   socket.on('connect_error', (error) => {
-    });
+  });
 
   socket.on('error', (error) => {
-    });
+  });
 
   socket.on('reconnect', (attemptNumber) => {
     if (userId) {
@@ -87,17 +87,17 @@ export const initializeSocket = (userId) => {
   });
 
   socket.on('reconnect_attempt', (attemptNumber) => {
-    });
+  });
 
   socket.on('reconnect_failed', () => {
-    });
+  });
 
   return socket;
 };
 
 export const getSocket = () => {
   if (!socket) {
-    }
+  }
   return socket;
 };
 
@@ -111,5 +111,45 @@ export const disconnectSocket = () => {
     socket.disconnect();
     socket = null;
   }
+};
+
+// Chat Helpers
+export const joinChatRoom = (room) => {
+  if (!socket) return;
+  socket.emit('join:chat', { room });
+};
+
+export const leaveChatRoom = (room) => {
+  if (!socket) return;
+  socket.emit('leave:chat', { room });
+};
+
+export const sendChatMessage = (payload) => {
+  return new Promise((resolve, reject) => {
+    if (!socket) return reject(new Error('No socket connection'));
+
+    socket.emit('message:send', payload, (response) => {
+      if (response && response.success) {
+        resolve(response);
+      } else {
+        reject(new Error(response?.error || 'Failed to send message'));
+      }
+    });
+  });
+};
+
+export const sendTypingStart = (room) => {
+  if (!socket) return;
+  socket.emit('typing:start', { room });
+};
+
+export const sendTypingStop = (room) => {
+  if (!socket) return;
+  socket.emit('typing:stop', { room });
+};
+
+export const sendReadReceipt = (room, conversationId, messageIds) => {
+  if (!socket) return;
+  socket.emit('message:seen', { room, conversationId, messageIds });
 };
 

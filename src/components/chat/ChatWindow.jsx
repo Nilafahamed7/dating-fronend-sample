@@ -7,7 +7,7 @@ import { usePaymentGate } from '../../hooks/usePaymentGate';
 import { chatService } from '../../services/chatService';
 import { callService } from '../../services/callService';
 import { presenceService } from '../../services/presenceService';
-import { getSocket } from '../../services/socketService';
+import { getSocket, joinChatRoom, leaveChatRoom, sendChatMessage, sendTypingStart, sendTypingStop, sendReadReceipt } from '../../services/socketService';
 import MessageBubble from './MessageBubble';
 import CallEventMessage from './CallEventMessage';
 import ChatInput from './ChatInput';
@@ -46,6 +46,7 @@ export default function ChatWindow({ matchId, otherUser }) {
   // New state for auto-message features
   const [isLocked, setIsLocked] = useState(false);
   const [autoReplyRequiresSubscription, setAutoReplyRequiresSubscription] = useState(false);
+  const [isTyping, setIsTyping] = useState(false); // Typing indicator for other user
 
   const { user, updateUser } = useAuth();
   const navigate = useNavigate();
@@ -112,7 +113,22 @@ export default function ChatWindow({ matchId, otherUser }) {
   useEffect(() => {
     if (otherUser) {
       // Set the navbar title to the user's name
-      setNavbarTitle(otherUser.name || 'User');
+      // Set the navbar title to the user's name with Online/Offline status
+      setNavbarTitle(
+        <div className="flex flex-col items-center leading-tight">
+          <span className="font-semibold text-gray-900">{otherUser.name || 'User'}</span>
+          <div className="flex items-center gap-1.5">
+            {isTyping ? (
+              <span className="text-xs text-green-600 font-bold animate-pulse">typing...</span>
+            ) : (
+              <>
+                <span className={`w-2 h-2 rounded-full ${onlineStatus === 'online' ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+                <span className="text-xs text-gray-500 font-medium">{onlineStatus === 'online' ? 'Online' : 'Offline'}</span>
+              </>
+            )}
+          </div>
+        </div>
+      );
       setShowBackButton(true);
 
       // Right side: Action buttons
@@ -158,7 +174,7 @@ export default function ChatWindow({ matchId, otherUser }) {
       setShowBackButton(false);
       setHomeRightAction(null);
     };
-  }, [otherUser, navigate, onlineStatus, matchId, setNavbarTitle, setShowBackButton, setHomeRightAction, user?.isPremium, user?.gender, chatTimeRemaining, isFemale]);
+  }, [otherUser, navigate, onlineStatus, matchId, setNavbarTitle, setShowBackButton, setHomeRightAction, user?.isPremium, user?.gender, chatTimeRemaining, isFemale, isTyping]); // Added isTyping dependency
 
   // Get call context - will return default values if provider not available
   const callContext = useCall();
@@ -412,12 +428,101 @@ export default function ChatWindow({ matchId, otherUser }) {
     if (matchId && otherUser?._id) {
       loadMessages();
       loadCallEvents();
-      // Poll for new messages every 5 seconds
-      const interval = setInterval(() => {
+      loadMessages();
+      loadCallEvents();
+
+      // Join Room
+      const roomId = `chat:${matchId}`;
+      joinChatRoom(roomId);
+
+      const socket = getSocket();
+
+      const handleReconnect = () => {
+        joinChatRoom(roomId);
         loadMessages();
-        loadCallEvents();
-      }, 5000);
-      return () => clearInterval(interval);
+      };
+
+      if (socket) {
+        // Reload on reconnection
+        socket.on('connect', handleReconnect);
+
+        socket.on('message:new', (newMessage) => {
+          // Check if message belongs to this chat
+          if (newMessage.conversationId === matchId || newMessage.matchId === matchId || newMessage.groupId === matchId) {
+            setMessages(prev => {
+              // Check for existing message by _id or tempId
+              const existingIndex = prev.findIndex(m => m._id === newMessage._id || (newMessage.tempId && m.tempId === newMessage.tempId));
+
+              if (existingIndex !== -1) {
+                // Message exists (likely optimistic). Update it with real data from server.
+                const updatedMessages = [...prev];
+                updatedMessages[existingIndex] = {
+                  ...updatedMessages[existingIndex],
+                  ...newMessage,
+                  status: 'delivered' // Server confirmed it
+                };
+                return updatedMessages;
+              }
+
+              // New message
+              return [...prev, newMessage];
+            });
+
+            // If message is from other user, mark as read
+            if (newMessage.sender !== user._id && newMessage.sender?._id !== user._id) {
+              sendReadReceipt(roomId, matchId, [newMessage._id]);
+            }
+          }
+        });
+
+        socket.on('message:delivered', ({ tempId, messageId }) => {
+          setMessages(prev => prev.map(msg =>
+            (msg.tempId === tempId || msg._id === messageId)
+              ? { ...msg, _id: messageId, status: 'delivered' }
+              : msg
+          ));
+        });
+
+        socket.on('typing:start', ({ userId, room }) => {
+          if (room === roomId && userId !== user._id) {
+            setIsTyping(true);
+          }
+        });
+
+        socket.on('typing:stop', ({ userId, room }) => {
+          if (room === roomId && userId !== user._id) {
+            setIsTyping(false);
+          }
+        });
+
+        socket.on('message:seen', ({ conversationId, messageIds }) => {
+          if (conversationId === matchId) {
+            setMessages(prev => prev.map(msg => {
+              // If specific messageIds provided, only update those.
+              // Otherwise update all unread messages (legacy behavior or full-read)
+              if (messageIds && Array.isArray(messageIds)) {
+                if (messageIds.includes(msg._id)) {
+                  return { ...msg, isRead: true };
+                }
+                return msg;
+              }
+              return { ...msg, isRead: true };
+            }));
+          }
+        });
+      }
+
+      return () => {
+        leaveChatRoom(roomId);
+        if (socket) {
+          socket.off('connect', handleReconnect);
+          socket.off('message:new');
+          socket.off('message:delivered');
+          socket.off('typing:start');
+          socket.off('typing:stop');
+          socket.off('message:seen');
+        }
+      };
     }
   }, [matchId, otherUser?._id]);
 
@@ -553,12 +658,16 @@ export default function ChatWindow({ matchId, otherUser }) {
       }
     };
 
-    socket.on('call:transaction', handleCallTransaction);
-    socket.on('call:billing_failed', handleBillingFailed);
+    if (socket) {
+      socket.on('call:transaction', handleCallTransaction);
+      socket.on('call:billing_failed', handleBillingFailed);
+    }
 
     return () => {
-      socket.off('call:transaction', handleCallTransaction);
-      socket.off('call:billing_failed', handleBillingFailed);
+      if (socket) {
+        socket.off('call:transaction', handleCallTransaction);
+        socket.off('call:billing_failed', handleBillingFailed);
+      }
     };
   }, [matchId, otherUser?._id, user?._id, user?.userId, loadCallEvents]);
 
@@ -739,6 +848,18 @@ export default function ChatWindow({ matchId, otherUser }) {
       const messages = response.chat || response.data || [];
       setMessages(messages);
 
+      // Emit read receipt for unread messages from OTHER user
+      const unreadMessageIds = messages
+        .filter(msg => {
+          const senderId = msg.sender?._id || msg.sender;
+          return senderId !== user?._id && !msg.isRead;
+        })
+        .map(msg => msg._id);
+
+      if (unreadMessageIds.length > 0) {
+        sendReadReceipt(`chat:${matchId}`, matchId, unreadMessageIds);
+      }
+
       // Calculate chat expiration (12 hours from last incoming message) for non-premium male users only
       // Females have free access, so they don't have chat expiration
       const isNonPremiumMale = !user?.isPremium && user?.gender === 'male';
@@ -821,11 +942,55 @@ export default function ChatWindow({ matchId, otherUser }) {
     }
   };
 
+  // Emit Read Receipts when unread messages are present
+  useEffect(() => {
+    const socket = getSocket();
+    if (!messages.length || !matchId || !socket) return;
+
+    const unreadMessageIds = messages
+      .filter(msg => !msg.isRead && msg.sender?._id !== user?._id && msg.sender !== user?._id)
+      .map(msg => msg._id);
+
+    if (unreadMessageIds.length > 0) {
+      // Emit to server
+      const roomId = `chat:${matchId}`;
+      sendReadReceipt(roomId, matchId, unreadMessageIds);
+
+      // Update local state to avoid repeated emits and reflect strictly locally
+      // (The server will broadcast message:seen, which listener also handles, but this prevents loops)
+      setMessages(prev => prev.map(msg =>
+        unreadMessageIds.includes(msg._id) ? { ...msg, isRead: true } : msg
+      ));
+    }
+  }, [messages, matchId, user?._id]);
+
   const handleSend = async (text) => {
+    // Optimistic UI: Create temp message and add immediately
+    const tempId = Date.now().toString();
+    const tempMessage = {
+      _id: tempId,
+      tempId: tempId,
+      sender: user, // Use current user object
+      text: text,
+      messageType: 'text',
+      createdAt: new Date().toISOString(),
+      isRead: false,
+      status: 'sending'
+    };
+
+    setMessages(prev => [...prev, tempMessage]);
+
+    // Scroll immediately
+    setTimeout(() => {
+      shouldAutoScrollRef.current = true;
+      scrollToBottom();
+    }, 0);
+
     try {
       // Check if blocked
       if (isBlocked) {
         toast.error('User is blocked. Unblock to send messages.');
+        setMessages(prev => prev.filter(m => m.tempId !== tempId));
         return;
       }
 
@@ -834,14 +999,11 @@ export default function ChatWindow({ matchId, otherUser }) {
       if (isNonPremiumMale && chatTimeRemaining === null && chatExpirationTime) {
         toast.error('Your 12-hour reply window expired. Subscribe to continue messaging.');
         setIsLocked(true);
-        setMessages([]);
+        setMessages(prev => prev.filter(m => m.tempId !== tempId));
         return;
       }
 
-      // Check if reply window expired (either auto-message or premium→non-premium)
-      // Premium users bypass this check
-      // Only check if the last message was NOT sent by the current user (they received it)
-      // Use mergedMessages to get the actual last item (including call events)
+      // Check reply windows
       const lastItem = mergedMessages.length > 0 ? mergedMessages[mergedMessages.length - 1] : null;
       const lastMsgIsFromMe = lastItem && lastItem.itemType === 'message' &&
         (lastItem.sender?._id === user?._id || lastItem.sender === user?._id);
@@ -854,45 +1016,57 @@ export default function ChatWindow({ matchId, otherUser }) {
           toast.error('Reply window expired — subscribe to reply.');
           setAutoReplyWindowExpiresAt(null);
           setReplyWindowExpiresAt(null);
+          setMessages(prev => prev.filter(m => m.tempId !== tempId));
           return;
         }
       }
 
       // Check payment gate for sending message
+      // Note: This might delay the actual network send, but UI is already updated.
+      // If this fails/cancels, we must remove the message.
       const canProceed = await checkSendMessage();
       if (!canProceed) {
+        setMessages(prev => prev.filter(m => m.tempId !== tempId));
         return; // Payment gate blocked the action
       }
 
       setSending(true);
-      await chatService.sendMessage(matchId, text);
-      await refreshBalance(); // Refresh balance after successful message
-      await loadMessages();
-      // Ensure we scroll to bottom after sending
-      setTimeout(() => {
-        shouldAutoScrollRef.current = true;
-        scrollToBottom();
-      }, 100);
+
+      // Use Socket to send message
+      const response = await sendChatMessage({
+        matchId,
+        text,
+        tempId
+      });
+
+      // If successful, balance update might be needed
+      if (response && response.remainingCoins !== undefined) {
+        refreshBalance();
+      }
+
+      // Stop typing
+      sendTypingStop(matchId);
+
     } catch (error) {
-      // Check if error is due to expired reply window
-      if (error.response?.status === 410 ||
-        error.response?.data?.code === 'EXPIRED_REPLY_WINDOW' ||
-        error.response?.data?.message?.includes('Reply window expired')) {
-        const errorMessage = error.response?.data?.message || 'Reply window expired — subscribe to reply.';
-        toast.error(errorMessage);
+      console.error("Send Error", error);
+
+      // Remove the optimistic message on failure
+      setMessages(prev => prev.filter(m => m.tempId !== tempId));
+
+      // Error handling
+      if (error?.code === 'EXPIRED_REPLY_WINDOW' || error?.message?.includes('Reply window expired')) {
+        toast.error('Reply window expired — subscribe to reply.');
         setAutoReplyWindowExpiresAt(null);
         setReplyWindowExpiresAt(null);
-        await loadMessages(); // Refresh to update state
-      } else if (error.response?.status === 403 && error.response?.data?.code === 'SUBSCRIBE_TO_REPLY') {
-        toast.error(error.response.data.message);
-        openPaymentGate(); // Open subscription modal
-      } else if (error.response?.status === 403 &&
-        (error.response?.data?.message?.includes('blocked') ||
-          error.message?.includes('blocked'))) {
+        loadMessages();
+      } else if (error?.code === 'SUBSCRIBE_TO_REPLY') {
+        toast.error(error.message);
+        openPaymentGate();
+      } else if (error?.message?.includes('blocked')) {
         setIsBlocked(true);
         toast.error('User is blocked. Unblock to send messages.');
       } else {
-        toast.error('Failed to send message');
+        toast.error(error.message || 'Failed to send message');
       }
     } finally {
       setSending(false);
@@ -1017,8 +1191,8 @@ export default function ChatWindow({ matchId, otherUser }) {
 
       setBottomContent(
         <div className={`border-b px-4 py-3 flex-shrink-0 flex items-center w-full ${isReplyWindowExpired
-            ? 'bg-gradient-to-r from-red-50 to-orange-50 border-red-200'
-            : 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200'
+          ? 'bg-gradient-to-r from-red-50 to-orange-50 border-red-200'
+          : 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200'
           }`}>
           <div className="flex items-center justify-between gap-3 w-full">
             <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -1188,6 +1362,12 @@ export default function ChatWindow({ matchId, otherUser }) {
               replyWindowExpired={isReplyWindowExpired}
               timeRemaining={timeRemaining}
               activeReplyWindow={activeReplyWindow}
+              onTypingStart={() => {
+                sendTypingStart(matchId);
+              }}
+              onTypingStop={() => {
+                sendTypingStop(matchId);
+              }}
             />
           </>
         )}

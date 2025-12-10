@@ -27,26 +27,27 @@ import {
 import { CheckBadgeIcon } from '@heroicons/react/24/solid';
 
 export default function ProfileEdit({ profile, onSave }) {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    gender: '',
-    bio: '',
-    lookingFor: '',
-    maritalStatus: '',
-    religion: '',
-    interests: [],
+    gender: user?.gender || profile?.profile?.gender || profile?.gender || '',
+    bio: user?.about || user?.bio || profile?.profile?.about || profile?.profile?.bio || profile?.about || profile?.bio || '',
+    lookingFor: profile?.profile?.lookingFor || profile?.lookingFor || '',
+    maritalStatus: profile?.profile?.maritalStatus || profile?.maritalStatus || '',
+    religion: profile?.religion || profile?.profile?.religion || '',
+    interests: profile?.profile?.interests || profile?.interests || [],
     location: {
-      city: '',
-      country: '',
-      address: '',
-      state: '',
+      city: profile?.profile?.location?.city || profile?.location?.city || '',
+      country: profile?.profile?.location?.country || profile?.location?.country || '',
+      address: profile?.profile?.location?.address || profile?.location?.address || '',
+      state: profile?.profile?.location?.state || profile?.location?.state || '',
+      coordinates: profile?.profile?.location?.coordinates || profile?.location?.coordinates || undefined,
     },
     preferences: {
-      ageRange: { min: 18, max: 50 },
-      distance: 50,
-      gender: 'all',
-      goals: [],
+      ageRange: profile?.preferences?.ageRange || { min: 18, max: 50 },
+      distance: profile?.preferences?.distance || 50,
+      gender: profile?.preferences?.gender || 'all',
+      goals: profile?.preferences?.goals || [],
     },
   });
   const [gettingLocation, setGettingLocation] = useState(false);
@@ -71,6 +72,7 @@ export default function ProfileEdit({ profile, onSave }) {
   const [loadingStates, setLoadingStates] = useState(false);
   const [videoProfile, setVideoProfile] = useState(null);
   const [loadingVideo, setLoadingVideo] = useState(false);
+  const [verificationSelfie, setVerificationSelfie] = useState(null); // { blob, url }
 
   useEffect(() => {
     // Load interests, religions, relation goals, and countries
@@ -289,7 +291,7 @@ export default function ProfileEdit({ profile, onSave }) {
         setIsSubmitted(false); // Reset submitted flag
       }
     }
-  }, [profile]);
+  }, [profile, user]);
 
   // Handle field blur to mark field as touched
   const handleBlur = (fieldName) => {
@@ -583,6 +585,18 @@ export default function ProfileEdit({ profile, onSave }) {
     return Boolean(errors[fieldName] && (touched[fieldName] || isSubmitted));
   };
 
+  const handleVerificationCapture = (blob, url) => {
+    setVerificationSelfie({ blob, url });
+    // Don't close immediately here, let onSuccess handle it or let CameraVerification handle it?
+    // CameraVerification calls onSuccess appropriately.
+    // We can also mark form as touched.
+    setFormTouched(true);
+  };
+
+  const clearVerificationSelfie = () => {
+    setVerificationSelfie(null);
+  };
+
   // Validate form data
   const validate = () => {
     const newErrors = {};
@@ -687,6 +701,25 @@ export default function ProfileEdit({ profile, onSave }) {
 
     try {
       setLoading(true);
+
+      // 1. Upload verification selfie if present
+      if (verificationSelfie?.blob) {
+        try {
+          const verifyFormData = new FormData();
+          verifyFormData.append('media', verificationSelfie.blob, 'verification-selfie.jpg');
+          verifyFormData.append('type', 'photo');
+          verifyFormData.append('source', 'camera');
+          verifyFormData.append('timestamp', new Date().toISOString());
+
+          await profileService.uploadVerificationPhoto(verifyFormData);
+        } catch (verifyError) {
+          console.error("Verification upload failed:", verifyError);
+          toast.error("Failed to upload verification selfie. Please try again.");
+          setLoading(false);
+          return;
+        }
+      }
+
       // Format data according to backend expectations
       const updateData = {
         gender: formData.gender, // Update user gender
@@ -817,6 +850,14 @@ export default function ProfileEdit({ profile, onSave }) {
 
 
 
+
+  if (authLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-[60vh]">
+        <LoadingSpinner />
+      </div>
+    );
+  }
 
   const profileData = profile?.profile || profile;
   const userData = profile?.userId || profile || user;
@@ -1610,7 +1651,7 @@ export default function ProfileEdit({ profile, onSave }) {
               )}
             </div>
 
-            {photoVerificationStatus !== 'pending' && (
+            {photoVerificationStatus !== 'pending' && !verificationSelfie && (
               <div className="mt-4">
                 <button
                   type="button"
@@ -1623,15 +1664,45 @@ export default function ProfileEdit({ profile, onSave }) {
               </div>
             )}
 
+            {/* Local Preview of Verification Selfie */}
+            {verificationSelfie && (
+              <div className="mt-4 flex items-center gap-4">
+                <div className="relative w-24 h-32 bg-black rounded-lg overflow-hidden border-2 border-yellow-500">
+                  <img
+                    src={verificationSelfie.url}
+                    alt="Selfie Preview"
+                    className="w-full h-full object-cover transform scale-x-[-1]"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <span className="text-sm font-medium text-green-600 flex items-center gap-1">
+                    <CheckCircleIcon className="w-4 h-4" /> Ready to submit
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowCameraVerification(true)} // Re-open camera
+                    className="text-sm text-gray-600 underline hover:text-black"
+                  >
+                    Retake Photo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearVerificationSelfie}
+                    className="text-sm text-red-500 underline hover:text-red-700"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            )}
+
             {showCameraVerification && (
               <CameraVerification
                 isPending={photoVerificationStatus === 'pending'}
+                uploadImmediately={false}
+                onCapture={handleVerificationCapture}
                 onSuccess={() => {
-                  // Redirect to home page on success
-                  toast.success('Verification submitted successfully!');
-                  setTimeout(() => {
-                    navigate('/');
-                  }, 1500);
+                  setShowCameraVerification(false);
                 }}
                 onCancel={() => setShowCameraVerification(false)}
               />

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { Bars3Icon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
 import NotificationBell from './NotificationBell';
@@ -162,17 +163,21 @@ function GlobalNavBar() {
           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
             {/* Mobile: Show back button if shouldShowBackOnMobile is true */}
             {shouldShowBackOnMobile ? (
-              <button
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
                 onClick={handleBack}
                 className="lg:hidden p-2 hover:bg-amber-100 rounded-lg transition-colors"
                 aria-label="Go back"
               >
                 <ArrowLeftIcon className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700" />
-              </button>
+              </motion.button>
             ) : (
               // Mobile: Show menu button when back button is not shown (only if authenticated)
               user && (
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -183,23 +188,27 @@ function GlobalNavBar() {
                   aria-expanded={showLeftSidebar}
                 >
                   <Bars3Icon className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700" />
-                </button>
+                </motion.button>
               )
             )}
 
             {/* Desktop: Show back button if explicitly set, otherwise show menu */}
             {shouldShowBackOnDesktop ? (
-              <button
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
                 onClick={handleBack}
                 className="hidden lg:flex p-2 hover:bg-amber-100 rounded-lg transition-colors"
                 aria-label="Go back"
               >
                 <ArrowLeftIcon className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700" />
-              </button>
+              </motion.button>
             ) : (
               // Desktop: Show menu button (only if authenticated)
               user && (
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -210,7 +219,7 @@ function GlobalNavBar() {
                   aria-expanded={showLeftSidebar}
                 >
                   <Bars3Icon className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700" />
-                </button>
+                </motion.button>
               )
             )}
 

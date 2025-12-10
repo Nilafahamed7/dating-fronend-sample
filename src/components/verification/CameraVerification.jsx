@@ -5,7 +5,7 @@ import { profileService } from '../../services/profileService';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../common/LoadingSpinner';
 
-export default function CameraVerification({ onSuccess, onCancel, isPending = false }) {
+export default function CameraVerification({ onSuccess, onCancel, onCapture, isPending = false, uploadImmediately = true }) {
   const [stream, setStream] = useState(null);
   const [capturedImage, setCapturedImage] = useState(null);
   const [isCapturing, setIsCapturing] = useState(false);
@@ -107,6 +107,22 @@ export default function CameraVerification({ onSuccess, onCancel, isPending = fa
   const submitVerification = async () => {
     if (!capturedImage?.blob) return;
 
+    // Handle local capture (no upload)
+    if (!uploadImmediately) {
+      if (onCapture) {
+        // Create a persistent URL for preview in parent if needed, 
+        // or let parent handle bob.
+        // We pass the blob and the current temp URL.
+        onCapture(capturedImage.blob, capturedImage.url);
+      }
+
+      // Close modal immediately via onSuccess
+      if (onSuccess) {
+        onSuccess();
+      }
+      return;
+    }
+
     try {
       setIsUploading(true);
       setError(null);
@@ -197,6 +213,7 @@ export default function CameraVerification({ onSuccess, onCancel, isPending = fa
       >
         {/* Close Button (Top Right) */}
         <button
+          type="button"
           onClick={handleCancel}
           className="absolute top-4 right-4 z-10 p-2 bg-black/20 hover:bg-black/30 rounded-full text-white transition-colors"
         >
@@ -246,12 +263,14 @@ export default function CameraVerification({ onSuccess, onCancel, isPending = fa
                 )}
                 <div className="flex gap-3">
                   <button
+                    type="button"
                     onClick={handleCancel}
                     className="flex-1 px-4 py-3 bg-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-300 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
+                    type="button"
                     onClick={startCamera}
                     className="flex-1 px-4 py-3 bg-yellow-500 text-black font-bold rounded-xl hover:bg-yellow-600 transition-colors flex items-center justify-center gap-2 shadow-lg"
                   >
@@ -293,12 +312,14 @@ export default function CameraVerification({ onSuccess, onCancel, isPending = fa
                 <canvas ref={canvasRef} className="hidden" />
                 <div className="flex gap-3">
                   <button
+                    type="button"
                     onClick={handleCancel}
                     className="flex-1 px-4 py-3 bg-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-300 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
+                    type="button"
                     onClick={capturePhoto}
                     className="flex-1 px-4 py-3 bg-yellow-500 text-black font-bold rounded-xl hover:bg-yellow-600 transition-colors flex items-center justify-center gap-2 shadow-lg"
                   >
@@ -334,6 +355,7 @@ export default function CameraVerification({ onSuccess, onCancel, isPending = fa
                 )}
                 <div className="flex gap-3">
                   <button
+                    type="button"
                     onClick={retakePhoto}
                     disabled={isUploading}
                     className="flex-1 px-4 py-3 bg-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
@@ -342,6 +364,7 @@ export default function CameraVerification({ onSuccess, onCancel, isPending = fa
                     Retake
                   </button>
                   <button
+                    type="button"
                     onClick={submitVerification}
                     disabled={isUploading}
                     className="flex-1 px-4 py-3 bg-green-500 text-white font-bold rounded-xl hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
@@ -375,7 +398,7 @@ export default function CameraVerification({ onSuccess, onCancel, isPending = fa
                 </div>
                 <h3 className="text-2xl font-bold text-black mb-2">Submitted!</h3>
                 <p className="text-gray-600">
-                  We received your selfie. Redirecting you to home...
+                  Verification submitted successfully.
                 </p>
               </motion.div>
             )}

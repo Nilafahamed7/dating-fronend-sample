@@ -3,17 +3,57 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { PaperAirplaneIcon, PhotoIcon, GiftIcon } from '@heroicons/react/24/outline';
 
-export default function ChatInput({ onSend, onSendImage, onSendGift, disabled, replyWindowExpired = false, timeRemaining = null, activeReplyWindow = null }) {
+export default function ChatInput({
+  onSend,
+  onSendImage,
+  onSendGift,
+  disabled,
+  replyWindowExpired = false,
+  timeRemaining = null,
+  activeReplyWindow = null,
+  onTypingStart,
+  onTypingStop
+}) {
   const navigate = useNavigate();
   const [message, setMessage] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const fileInputRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (message.trim() && !disabled) {
       onSend(message.trim());
       setMessage('');
+
+      // Stop typing immediately on send
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      if (onTypingStop) onTypingStop();
+    }
+  };
+
+  const handleInputChange = (e) => {
+    setMessage(e.target.value);
+
+    if (disabled) return;
+
+    // Typing Indicator Logic
+    if (onTypingStart) {
+      // If clearing previous timeout, it means we continue typing
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      } else {
+        // No active timeout means we just started typing (after a stop or for the first time)
+        onTypingStart();
+      }
+
+      // Set timeout to stop typing after inactivity
+      typingTimeoutRef.current = setTimeout(() => {
+        if (onTypingStop) onTypingStop();
+        typingTimeoutRef.current = null;
+      }, 1500); // 1.5s delay
     }
   };
 
@@ -129,16 +169,15 @@ export default function ChatInput({ onSend, onSendImage, onSendGift, disabled, r
           <input
             type="text"
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            onChange={handleInputChange}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
             placeholder={replyWindowExpired ? "Reply window expired" : "Type a message..."}
             disabled={isDisabled}
-            className={`w-full px-5 py-3 bg-gray-50 border-2 rounded-full focus:outline-none transition-all disabled:opacity-50 ${
-              isFocused
-                ? 'border-purple-400 bg-white shadow-lg'
-                : 'border-transparent hover:bg-gray-100'
-            }`}
+            className={`w-full px-5 py-3 bg-gray-50 border-2 rounded-full focus:outline-none transition-all disabled:opacity-50 ${isFocused
+              ? 'border-purple-400 bg-white shadow-lg'
+              : 'border-transparent hover:bg-gray-100'
+              }`}
           />
         </div>
 
@@ -147,11 +186,10 @@ export default function ChatInput({ onSend, onSendImage, onSendGift, disabled, r
           disabled={!message.trim() || isDisabled}
           whileHover={{ scale: (!message.trim() || isDisabled) ? 1 : 1.1 }}
           whileTap={{ scale: (!message.trim() || isDisabled) ? 1 : 0.9 }}
-          className={`p-3 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-            message.trim() && !isDisabled
-              ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 shadow-lg hover:shadow-xl hover:from-yellow-500 hover:to-yellow-600'
-              : 'bg-gray-200'
-          }`}
+          className={`p-3 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed ${message.trim() && !isDisabled
+            ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 shadow-lg hover:shadow-xl hover:from-yellow-500 hover:to-yellow-600'
+            : 'bg-gray-200'
+            }`}
         >
           <PaperAirplaneIcon className={`w-6 h-6 ${message.trim() && !isDisabled ? 'text-white' : 'text-gray-400'}`} />
         </motion.button>

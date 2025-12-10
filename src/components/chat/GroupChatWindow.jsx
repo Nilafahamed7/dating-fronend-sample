@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 import { groupChatService } from '../../services/groupChatService';
 import { chatService } from '../../services/chatService';
-import { getSocket } from '../../services/socketService';
+import { getSocket, joinChatRoom, leaveChatRoom, sendChatMessage, sendTypingStart, sendTypingStop, sendReadReceipt } from '../../services/socketService';
 import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
 import IceBreakerStrip from './IceBreakerStrip';
@@ -41,11 +41,113 @@ export default function GroupChatWindow({ groupId }) {
     }, 100);
   };
 
-  // ... (loadGroupData and loadMessages functions remain unchanged)
+  const loadGroupData = async () => {
+    try {
+      const response = await groupChatService.getGroupInfo(groupId);
+      if (response && response.success) {
+        setGroup(response.data);
+        // Check membership
+        const member = response.data.members?.find(m => m.user._id === user._id || m.user === user._id);
+        setIsMember(member && member.status === 'active');
+      }
+    } catch (error) {
+      console.error('Failed to load group info:', error);
+      toast.error('Failed to load group info');
+    }
+  };
 
-  // ... (useEffect for initial loading remains unchanged)
+  const loadMessages = async () => {
+    try {
+      setLoading(true);
+      const response = await groupChatService.getGroupMessages(groupId);
+      if (response && response.success) {
+        setMessages(response.data || []);
 
-  // ... (useEffect for socket listeners remains unchanged)
+        // Emit read receipts for unread messages not from me
+        const unreadMessageIds = (response.data || [])
+          .filter(msg => msg.sender?._id !== user._id && !msg.isRead)
+          .map(msg => msg._id);
+
+        if (unreadMessageIds.length > 0) {
+          sendReadReceipt(`group:${groupId}`, groupId, unreadMessageIds);
+        }
+      }
+      setLoading(false);
+    } catch (error) {
+      console.error('Failed to load messages:', error);
+      toast.error('Failed to load messages');
+      setLoading(false);
+    }
+  };
+
+  // Initial Load
+  useEffect(() => {
+    if (groupId && user) {
+      loadGroupData();
+      loadMessages();
+    }
+  }, [groupId, user?._id]);
+
+  // Socket Listeners
+  useEffect(() => {
+    if (groupId) {
+      const roomId = `group:${groupId}`;
+      joinChatRoom(roomId);
+
+      const socket = getSocket();
+      if (socket) {
+        socket.on('message:new', (newMessage) => {
+          // Verify it belongs to this group
+          if (newMessage.groupId === groupId || newMessage.conversationId === groupId) {
+            setMessages(prev => {
+              const existingIndex = prev.findIndex(m => m._id === newMessage._id || (newMessage.tempId && m.tempId === newMessage.tempId));
+
+              if (existingIndex !== -1) {
+                // Message exists (likely optimistic). Update it.
+                const updatedMessages = [...prev];
+                updatedMessages[existingIndex] = {
+                  ...updatedMessages[existingIndex],
+                  ...newMessage,
+                  status: 'delivered'
+                };
+                return updatedMessages;
+              }
+              return [...prev, newMessage];
+            });
+            scrollToBottom();
+
+            // Mark as read if not my message
+            if (newMessage.sender?._id !== user._id) {
+              sendReadReceipt(roomId, groupId, [newMessage._id]);
+            }
+          }
+        });
+
+        socket.on('message:delivered', ({ tempId, messageId }) => {
+          setMessages(prev => prev.map(msg =>
+            (msg.tempId === tempId || msg._id === messageId)
+              ? { ...msg, _id: messageId, status: 'delivered' }
+              : msg
+          ));
+        });
+
+        socket.on('message:seen', ({ conversationId }) => {
+          if (conversationId === groupId) {
+            setMessages(prev => prev.map(msg => ({ ...msg, isRead: true })));
+          }
+        });
+      }
+
+      return () => {
+        leaveChatRoom(roomId);
+        if (socket) {
+          socket.off('message:new');
+          socket.off('message:delivered');
+          socket.off('message:seen');
+        }
+      };
+    }
+  }, [groupId, user?._id]);
 
   // Update navbar
   useEffect(() => {
@@ -86,34 +188,42 @@ export default function GroupChatWindow({ groupId }) {
       return;
     }
 
+    const tempId = `temp-${Date.now()}`;
+    const tempMessage = {
+      _id: tempId,
+      tempId: tempId,
+      sender: user,
+      text: text,
+      messageType: 'text',
+      groupId: groupId,
+      createdAt: new Date().toISOString(),
+      isRead: false,
+      status: 'sending'
+    };
+
     try {
       setSending(true);
-      const response = await chatService.sendMessage(null, text, groupId);
-      if (response.success && response.data) {
-        setMessages(prev => {
-          // Avoid duplicates - the message might already be added via socket
-          const messageId = response.data._id?.toString();
-          if (!messageId) return prev;
+      // Optimistic Update
+      setMessages(prev => [...prev, tempMessage]);
+      scrollToBottom();
 
-          const exists = prev.some(m => {
-            const existingId = m._id?.toString();
-            return existingId && existingId === messageId;
-          });
+      // Send via Socket
+      await sendChatMessage({
+        groupId,
+        text,
+        tempId
+      });
 
-          if (exists) return prev;
-          return [...prev, response.data];
-        });
-        scrollToBottom();
-      }
+      // Stop typing
+      sendTypingStop(`group:${groupId}`);
+
     } catch (error) {
-      const errorCode = error.response?.data?.code;
-      const errorMessage = error.response?.data?.message || 'Failed to send message';
-
-      if (errorCode === 'PREMIUM_REQUIRED') {
-        toast.error('Premium membership required to send messages in groups. Please upgrade.', { duration: 5000 });
-      } else {
-        toast.error(errorMessage);
-      }
+      console.error("Send Error", error);
+      // Mark message as failed
+      setMessages(prev => prev.map(msg =>
+        msg.tempId === tempId ? { ...msg, status: 'failed' } : msg
+      ));
+      toast.error(error.message || 'Failed to send');
     } finally {
       setSending(false);
     }
@@ -200,7 +310,7 @@ export default function GroupChatWindow({ groupId }) {
             <MessageBubble
               key={message._id || `msg-${index}-${message.createdAt || Date.now()}`}
               message={message}
-              isOwn={message.sender?._id?.toString() === user?._id?.toString()}
+              isMine={message.sender?._id?.toString() === user?._id?.toString()}
               index={index}
             />
           ))
@@ -228,6 +338,16 @@ export default function GroupChatWindow({ groupId }) {
         disabled={!isMember || !user?.isPremium || sending}
         replyWindowExpired={false}
         placeholder={!user?.isPremium && isMember ? 'Premium required to send messages' : undefined}
+        onTypingStart={() => {
+          if (isMember) {
+            sendTypingStart(`group:${groupId}`);
+          }
+        }}
+        onTypingStop={() => {
+          if (isMember) {
+            sendTypingStop(`group:${groupId}`);
+          }
+        }}
       />
 
       {/* Group Info Drawer */}
@@ -251,4 +371,3 @@ export default function GroupChatWindow({ groupId }) {
     </div>
   );
 }
-
